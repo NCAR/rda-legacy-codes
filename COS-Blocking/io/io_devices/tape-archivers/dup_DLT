@@ -1,0 +1,11 @@
+#! /bin/csh
+echo '....dup_DLT begin '`date`
+cd ~/DJ_DLT
+@ ns = 1
+while ( $ns <= $1 )
+dd if=/dev/rmt/6n of=/dev/rmt/7n bs=32768
+echo '..done '$ns
+@ ns++
+end
+echo '....dup_DLT done  '`date`
+exit

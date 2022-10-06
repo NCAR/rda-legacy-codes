@@ -1,0 +1,105 @@
+Notes for usage of 7 track tape drive.
+
+Hardware -
+
+The hardware was reconditioned and a SCSI interface built
+by Pinetree Peripherals in Longmont.  Chuck Tillman is
+the owner of the company and primary contact for DSS.
+303-776-5066.  They have agreed informally to continue
+maintaining the machine until July 2002.  Common problems
+have been tension arm failures.   There are 3 main components.
+The tape drive, the Pertec formatter, and the Pinetree
+SCSI interface.  All need to be on when the system is booted
+to insure proper SCSI setup.  The drive has a density switch
+(hi and lo for 800 and 556 bpi).  A loose switch from the
+interface chooses odd or even parity.  Most DSS tapes are odd
+parity and 800 bpi.
+
+Tape threading instructions are on the inside of the door and
+tape loading and unloading instructions are on the operator
+instruction sheet next to the drive.
+
+Cooling fans are mounted on the back of the mounting rack and
+these must be turned on for the equipment to function properly.
+
+Software -
+
+Basic tape movement can be done with standard mt commands and
+more information is available from man pages for mt and mtio.
+The device name for the tape drive is /dev/rmt/4mbn .
+
+ Primary read to MSS code
+
+The software was developed partly be experimentation to see
+what combinations gave the best results.  The main tape read
+code is a FORTRAN code called tape2cosbx.f .  It reads tape
+records and outputs a cosblocked file.  The code puts prepends
+each original tape record with two 32 bit words containing
+the status of the read and the length in bytes of the tape
+read.  This will allow the identification of records which
+contained read errors when read from the tape.
+
+A script called runtomss is used to drive tape2cosbx.f. The
+script reads input tape names from a list called input and
+requests a tape mount by sending a message to the seventrack
+terminal and (optionally) an email to the computer room
+operators. When the tape is mounted and made ready, the
+tape2cosb code is executed.  When the code completes, the
+file is written to the MSS using the same tape name that
+came from the input file.  Path names on the MSS and for
+temporary storage from seventrack are defined in the script.
+
+For the tape request information to be written to a seventrack
+terminal the script must identify a window open on seventrack.
+It looks for the lowest tty number on seventrack.  A script
+called runfindcon tests this by writing a test message to
+the terminal which will be used.  The easiest way to insure
+the terminal is actually on seventrack is to kill all
+windows that open automatically when the system boots and
+open a terminal (NOT a console) first using the toolbar.
+
+ Other software
+
+bitcnt.f - counts bits in each track
+
+read7trk.f - reads mss files written by tape2cosbx and
+ either adjusts bit positions to make the 6 bit bytes
+ contiguous or converts the 6 bit BCD characters to
+ ASCII (linefeed or Cosblocked).
+
+test.f - reads a tape on the 7 track drive for drive
+ testing.
+
+gf77 - script for compiling codes on huron or bison for
+ execution on seventrack.
+
+
+PROBLEMS
+
+A potentially serious problem with the results of
+many of the 7 track tape copies has been detected.
+
+In a recent copy it was noted that the results did
+not match the expected data.  In closer examination
+it seemed that one channel of the tape drive may
+have been dropping out without any indication of
+an error.
+
+Diagnostic code was written to count bits-on in each
+channel (track) of the data read by the drive.  A
+few output files were spot checked and the date
+at which this problem started was narrowed to about
+1 May 2000.  It is possible that all data generated
+after this date has this problem.  This would likely
+make most of that data useless.
+
+The problem was apparently fixed in the most recent
+maintenance by Pinetree.  Tapes read after 1 December
+2001 should be OK.
+
+Another problem is some ambiguity in the length
+of each read.  It appears that if the last byte of a
+record is null it may be omitted from the data transferred
+to memory.  In most cases this should not cause serious
+problems with interpreting the data, since missing final
+bytes can be assumed to be null.

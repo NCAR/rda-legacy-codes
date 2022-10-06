@@ -1,0 +1,269 @@
+ 
+      SUBROUTINE GBITS(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+      DIMENSION NPACK(ITER),ISAM(ITER)
+C     ++++++++++
+C     CALL GBITS(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C     starts unpacking bits at bit offset IBIT in array
+C     NPACK.  It takes NBITS and stores them in the longword
+C     array starting at ISAM.  Then NSKIP bits are skipped in
+C     NPACK and the next field of NBITS is unpacked into the
+C     next ISAM.  This is done a total of ITER times.
+C     
+C     this routine extracts bits from vax words.
+C     it is similar to NCAR's GBYTE but it works with
+C     the natural underlying structure of the VAX.
+C     ----------
+      ISW = 1
+      GO TO 10
+      ENTRY SBITS(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C     ++++++++++
+C     CALL SBITS(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C     This routine takes the first longword located at
+C     ISAM and stores it into the NBITS of NPACK starting at
+C     bit offset IBIT.  Then NSKIP bits are skipped in
+C     NPACK and the process is repeated a total of ITER times.
+C
+C     this routine extracts bits from vax words.
+C     it is similar to NCAR's SBYTE but it works with
+C     the natural underlying structure of the VAX.
+C     ----------
+      ISW = 2
+      GO TO 10
+      ENTRY GXBYTES(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C     ++++++++++
+C     CALL GXBYTES(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C     starts unpacking bits at bit offset IBIT in array
+C     NPACK.  It takes NBITS and stores them in the longword
+C     array starting at ISAM.  Then NSKIP bits are skipped in
+C     NPACK and the next field of NBITS is unpacked into the
+C     next ISAM.  This is done a total of ITER times.
+C     
+C     This routine deals with bits and bytes in the order
+C     they are numbered on the Mesa (ie Bigendian).
+C     ----------
+      ISW = 3
+      GO TO 10
+      ENTRY SXBYTES(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C     ++++++++++
+C     CALL SXBYTES(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C     This routine takes the first longword located at
+C     ISAM and stores it into the NBITS of NPACK starting at
+C     bit offset IBIT.  Then NSKIP bits are skipped in
+C     NPACK and the process is repeated a total of ITER times.
+C
+C     
+C     This routine deals with bits and bytes in the order
+C     they are numbered on the Mesa (ie Bigendian).
+C     ----------
+      ISW = 4
+      GOTO 10
+      ENTRY GBYTES(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C        THIS ROUTINE IS JUST A REPEATED CALL TO GBYTE
+C        WHERE SUCCESSIVE CALLS SKIP NSKIP BITS
+C        AND THE LOOP COUNT IS ITER
+      ISW = 5
+      GOTO 10
+      ENTRY SBYTES(NPACK,ISAM,IBIT,NBITS,NSKIP,ITER)
+C        THIS ROUTINE IS JUST A REPEATED CALL TO SBYTE
+C        WHERE SUCCESSIVE CALLS SKIP NSKIP BITS
+C        AND THE LOOP COUNT IS ITER
+      ISW = 6
+      GOTO 10
+10    IOFF = IBIT
+      IBASE = 1
+      DO 30 I = 1 , ITER
+         GO TO(11,12,13,14,15,16)ISW
+11       CALL GBIT(NPACK(IBASE),ISAM(I),IOFF,NBITS)
+         GO TO 20
+12       CALL SBIT(NPACK(IBASE),ISAM(I),IOFF,NBITS)
+         GO TO 20
+13       CALL GXBYTE(NPACK(IBASE),ISAM(I),IOFF,NBITS)
+         GO TO 20
+14       CALL SXBYTE(NPACK(IBASE),ISAM(I),IOFF,NBITS)
+         GO TO 20
+15       CALL GBYTE(NPACK(IBASE),ISAM(I),IOFF,NBITS)
+         GOTO 20
+16       CALL SBYTE(NPACK(IBASE),ISAM(I),IOFF,NBITS)
+         GOTO 20
+20       IOFF = IOFF + NBITS + NSKIP
+         IBASE = IBASE + IOFF/32      
+         IOFF = MOD(IOFF,32)
+30    CONTINUE
+      RETURN
+      END
+      SUBROUTINE GXBYTE(NPACK,ISAM,IBIT,NBITS)
+C     ++++++++++
+C     CALL GXBYTE(NPACK,ISAM,IBIT,NBITS)
+C     starts unpacking bits at bit offset IBIT in array
+C     NPACK.  It takes NBITS and stores them in the longword
+C     array starting at ISAM.
+C     
+C     This routine deals with bits and bytes in the order
+C     they are numbered on the Mesa (ie Bigendian).
+C     ----------
+C
+C     gbyte and sbyte are special routines to do the same
+C     things as their counterparts on the Mesa.
+C     They differ from the bits routines in that bits
+C     are counted from the top of the word rather than
+C     the bottom.  This means that the bits they specify jump around
+C     when crossing byte boundaries.  There is no assumption
+C     made about the wordsize of the machine they were written
+C     on.  However the maximum number of bits extracted must be
+C     less than or equal to 32.
+C
+      BYTE NPACK(8)
+      INTEGER T
+      EXTERNAL SS$_ABORT
+      IDBIT(I) = 7 - MOD(I,8)
+      ISW = 3
+      ISAM = 0
+      GO TO 10
+      ENTRY SXBYTE(NPACK,ISAM,IBIT,NBITS)
+C     ++++++++++
+C     CALL SXBYTE(NPACK,ISAM,IBIT,NBITS)
+C     This routine takes the first longword located at
+C     ISAM and stores it into the NBITS of NPACK starting at
+C     bit offset IBIT.
+C
+C     
+C     This routine deals with bits and bytes in the order
+C     they are numbered on the Mesa (ie Bigendian).
+C     ----------
+      ISW = 4
+10    IBASE = IBIT/8
+C     ibase points to the first byte involved
+      IOFF = IBIT - 8*IBASE
+C     ioff is the bit offset within first byte
+      M = (IOFF+NBITS-1)/8 + 1
+C     m is the number of bytes (including partials) involved
+C     IF(M.GT.5)THEN
+      IF(NBITS.GT.32)THEN
+         TYPE *,'ILLEGAL VALUE FOR NBITS IN S/GBYTE(S) CALL'
+         CALL SYS$EXIT(SS$_ABORT)
+      END IF
+      NN = 0
+C     nn is the number of bits transferred
+      DO 20 I = M , 1 , -1
+C     loop on bytes
+         IS = IDBIT(0)
+C        calc first bit within byte
+         IE = IDBIT(7)
+C        calc last bit within byte
+         IF(I.EQ.1)IS = IDBIT(IOFF)
+C        first bit varies for first byte
+         IF(I.EQ.M)IE = IDBIT(IOFF+NBITS-1)
+C        last bit varies for last byte
+         N = IS - IE + 1
+C        calc number of bits within byte to xfer
+         IF(ISW.EQ.4)GO TO 12
+         CALL GBIT(NPACK(IBASE+I),T,IE,N)
+C        extract bits from source
+         CALL SBIT(ISAM,T,NN,N)
+C        and load into destination
+         GO TO 15
+12       CALL GBIT(ISAM,T,NN,N)
+C        extract bits from source
+         CALL SBIT(NPACK(IBASE+I),T,IE,N)
+C        and load into destination
+15       NN = NN + N
+C        update bits xferred
+20    CONTINUE
+      RETURN
+      END
+      SUBROUTINE GBYTE(NPACK,ISAM,IBIT,NBITS)
+C
+C     gbyte and sbyte are special routines to do the same
+C     things as their counterparts on the Mesa.
+C     They differ from the bits routines in that bits
+C     are counted from the top of the word rather than
+C     the bottom.  This means that the bits they specify jump around
+C     when crossing byte boundaries.  There is no assumption
+C     made about the wordsize of the machine they were written
+C     on.  However the maximum number of bits extracted must be
+C     less than or equal to 32.
+C
+      BYTE NPACK(8)
+      INTEGER T
+      EXTERNAL SS$_ABORT
+      IDBIT(I) = 7 - MOD(I,8)
+      ISW = 3
+      ISAM = 0
+      GO TO 10
+      ENTRY SBYTE(NPACK,ISAM,IBIT,NBITS)
+      ISW = 4
+10    IBASE = IBIT/8
+C     ibase points to the first byte involved
+      IOFF = IBIT - 8*IBASE
+C     ioff is the bit offset within first byte
+      M = (IOFF+NBITS-1)/8 + 1
+C     m is the number of bytes (including partials) involved
+C     IF(M.GT.5)THEN
+      IF(NBITS.GT.32)THEN
+         TYPE *,'ILLEGAL VALUE FOR NBITS IN S/GBYTE(S) CALL'
+         CALL SYS$EXIT(SS$_ABORT)
+      END IF
+      NN = 0
+C     nn is the number of bits transferred
+      DO 20 I = M , 1 , -1
+C     loop on bytes
+         IBB = IBASE + I - 1
+         IBC = IBB/4
+         IBD = 4*IBC+3-MOD(IBB,4) + 1
+C        calculate unshifted byte
+         IS = IDBIT(0)
+C        calc first bit within byte
+         IE = IDBIT(7)
+C        calc last bit within byte
+         IF(I.EQ.1)IS = IDBIT(IOFF)
+C        first bit varies for first byte
+         IF(I.EQ.M)IE = IDBIT(IOFF+NBITS-1)
+C        last bit varies for last byte
+         N = IS - IE + 1
+C        calc number of bits within byte to xfer
+         IF(ISW.EQ.4)GO TO 12
+C        CALL GBIT(NPACK(IBASE+I),T,IE,N)
+         CALL GBIT(NPACK(IBD),T,IE,N)
+C        extract bits from source
+         CALL SBIT(ISAM,T,NN,N)
+C        and load into destination
+         GO TO 15
+12       CALL GBIT(ISAM,T,NN,N)
+C        extract bits from source
+C        CALL SBIT(NPACK(IBASE+I),T,IE,N)
+         CALL SBIT(NPACK(IBD),T,IE,N)
+C        and load into destination
+15       NN = NN + N
+C        update bits xferred
+20    CONTINUE
+      RETURN
+      END
+      .title   sgbit
+;     ++++++++++
+;     CALL GBIT(NPACK,ISAM,IBIT,NBITS)
+;     unpacks the bit pattern located at a bit offset
+;     of IBIT in NPACK of length NBITS into ISAM.
+;
+;     this routine extracts bits from vax words.
+;     it is similar to NCAR's GBYTE but it works with
+;     the natural underlying structure of the VAX.
+;     ----------
+      .PSECT    MACRO_CODE PIC,USR,CON,REL,LCL,SHR,EXE,RD,NOWRT,NOVEC
+      .ENTRY   GBIT,0
+      extzv @12(ap),@16(ap),@4(ap),@8(ap)  ;isn't this neat ?
+      ret
+;
+;
+;     ++++++++++
+;     CALL SBIT(NPACK,ISAM,IBIT,NBITS)
+;     packs the value in ISAM into NPACK
+;     with NBITS offset by IBIT.
+;
+;     this routine extracts bits from vax words.
+;     it is similar to NCAR's SBYTE but it works with
+;     the natural underlying structure of the VAX.
+;     ----------
+      .ENTRY   SBIT,0
+      insv  @8(ap),@12(ap),@16(ap),@4(ap)  ;isn't this neat ?
+      ret
+      .end

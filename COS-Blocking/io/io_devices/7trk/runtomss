@@ -1,0 +1,185 @@
+#
+# Request tape mounts, read 7 trks, write files to MSS
+# must be run on seventrack.scd.ucar.edu
+#
+if ($#argv == 0) then
+ echo "input file name required - exit"
+ exit
+endif
+
+# set up working directories and files
+set cwd = `pwd`
+set twd = /tmp/7trk$$
+mkdir $twd
+set t = $twd/temp
+set s = $twd/status
+echo Status for run on $1 > $s
+set msg = $twd/msg
+#
+set log = RUNLOG-`date '+%y%m%d-%H:%M' `
+echo runlog `date` > $log
+echo "      Tape     File  Recs     Bytes     errs   errbytes   min   max  date-time " >> $log
+#
+# MSS directory and options for output with mswrite
+  set mdir = /DSS/DS015.0/7trk
+  set mopt = "-t 32767 -w 4DS015.0 -v CTDS0002 "
+# set mdir = /JOSEPH/7trk
+# set mopt = "-t 60 "
+#
+# set tape device name
+set tapdev = /dev/rmt/4
+# directories for holding tape files (huron and seventrack)
+set tdir = /huron/scratch/7trk
+if (! -e $tdir) mkdir $tdir
+set ltdir = /huron/scratch/7trk
+if (! -e $ltdir) mkdir $ltdir
+#
+# find terminal local to seventrack for mount requests
+#
+set fu = `who`
+set cnt = `echo $fu | wc`
+set nl = $cnt[2]
+set n = 0
+while ($n < $nl)
+  if ($fu[$n] != "$USER") @ n = $n + 1
+  set ruser = $fu[$n]
+  @ n = $n + 1
+  set term = $fu[$n]
+#  if ($term == "console") goto start
+  @ n = $n + 4
+  if($fu[$n] == "(:0.0)") goto start
+  if($fu[$n] == "(seventrack:0.0)") goto start
+# if($fu[$n] == "(royal.scd.ucar.edu)") goto start
+end
+echo NO CONSOLE AVAILABLE on seventrack - exit
+exit
+#
+start:
+echo seventrack terminal messages will  be sent to $ruser on $term
+#
+#
+# start loop through tape names in input list ($1)
+#
+set n = 0
+foreach xx (`cat $1`)
+  echo "Start processing on $xx"
+  if(-r fort.7) rm fort.7
+  if(-r fort.8) rm fort.8
+  if(-r fort.9) rm fort.9
+#
+# get file name, density, and parity specs
+ set ll = `echo $xx | sed -e 1,1s/,/" "/g`
+ set nll = `echo $ll | wc`
+ set nl = $nll[2]
+ set x = $ll[1]
+ if ($nl > 1) then
+  set ix = 2
+  if($ll[$ix] == "l") then
+    set den = OFF
+  else
+    set den = ON
+  endif
+ else
+  set den = "x"
+ endif
+ if ($nl > 2) then
+  set ix = 3
+  if($ll[$ix] == "e") then
+    set par = even
+  else
+    set par = odd
+  endif
+ else
+  set par = "x"
+ endif
+#
+ @ n = $n + 1
+ echo $xx > $t
+ (mt -f $tapdev status >>$s ) >>& $s
+ set ss = $status
+#
+ set nt = 0
+ set nmsg=0
+ while ($ss != 0)
+   if ($nt <= 0) then
+     echo " "
+     echo MOUNT REQUEST FOR PERTEC 7 track  - $xx at `date`
+     echo ___________________________________________ >! $msg
+     echo "                          " >> $msg
+     echo  MOUNT REQUEST FOR PERTEC 7 track  - $x >> $msg
+     if($den != "x") echo " HI DEN  = "$den >> $msg
+     if($par != "x") echo " PARITY  = "$par >> $msg
+# request head cleaning every  50 tapes
+     @ mn = $n - 50 * ($n / 50)
+     if($mn == 0) echo " ** clean tape unit heads ** " >> $msg
+
+     echo "                          " >> $msg
+     echo ___________________________________________ >> $msg
+     cat $msg | write $ruser $term
+#    cat $msg
+     @ nmsg = $nmsg + 1
+# email mount request each 10 messages
+     @ mn = $nmsg - 10 * ($nmsg / 10)
+     if ($mn == 1) then
+#      cat $msg | mail -s "PERTEC tape mount $xx" tapelist@ucar.edu
+       cat $msg | mail -s "PERTEC tape mount $xx" $USER@ucar.edu
+     endif
+   set nt = 10
+   endif
+   @ nt = $nt - 1
+   sleep  6
+   (mt -f $tapdev status >>$s ) >>& $s
+   set ss = $status
+ end
+
+   echo READING - $x at `date`
+   echo ___________________________________________ >! $msg
+   echo "                          " >> $msg
+   echo  READING  - $x >> $msg
+   echo "                          " >> $msg
+   echo ___________________________________________ >> $msg
+   cat $msg | write $ruser $term
+
+   if(-r $ltdir/$x) rm $ltdir/$x
+   echo $ltdir/$x >> $t
+# read tape to disk
+   tape2cosbx < $t
+   rm $t
+# take tape offline for next mount request
+    mt -f $tapdev offline >> $s
+   echo READ COMPLETE - $x at `date`
+   echo ___________________________________________ >! $msg
+   echo "                          " >> $msg
+   echo  READ COMPLETED ON  - $x >> $msg
+   echo "                          " >> $msg
+   echo ___________________________________________ >> $msg
+   cat $msg | write $ruser $term
+# distribute output files
+  if(-r fort.7) then
+#   cat fort.7 | mail $USER@ucar.edu
+    mv fort.7 $x".out"
+  endif
+  if(-r fort.9) mv fort.9 $x".err"
+  if(-r fort.8) then
+     cat fort.8 >> $log
+     rm fort.8
+  endif
+# do mswrite
+   echo MSWRITE - $x at `date`
+   echo ___________________________________________ >! $msg
+   echo "                          " >> $msg
+   echo  "WRITING  $x to MSS" >> $msg
+   echo "                          " >> $msg
+   echo ___________________________________________ >> $msg
+   cat $msg | write $ruser $term
+   rsh -n huron.scd mswrite $mopt $tdir/$x $mdir/$x
+   rm $ltdir/$x
+ endif
+  echo "End processing on $xx"
+end
+#
+echo "job complete"
+echo JOB COMPLETE ------------------------------ >! $msg
+cat $msg | write $ruser $term
+cat $msg
+rm -r $twd

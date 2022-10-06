@@ -1,0 +1,38 @@
+  Device names on Sun Solaris (from the man page for "st")
+
+
+   /dev/rmt/[0- 127][l,m,h,u,c][b][n]
+               where  l,m,h,u,c  specifies  the   density   (low,
+               medium,  high,  ultra/compressed),  b the optional
+               BSD behavior (see mtio(7I)), and  n  the  optional
+               no  rewind  behavior.  For  example, /dev/rmt/0lbn
+               specifies unit 0, low density, BSD  behavior,  and
+               no rewind.
+
+               For 1/2" reel tape devices (HP-88780), the  densi-
+               ties are:
+               l                             800 BPI density
+               m                             1600 BPI density
+               h                             6250 BPI density
+               c                             data compression
+                                             (not supported on all modules)
+
+               For 8mm tape devices (Exabyte 8200/8500/8505):
+               l                             Standard 2 Gbyte format
+               m                             5 Gbyte format (8500, 8505 only)
+               h,c                           5 Gbyte compressed format  (8505
+                                             only)
+
+               For 4mm DAT tape devices (Archive Python):
+               l                             Standard format
+               m,h,c                         data compression
+
+               For all QIC (other than QIC-24) tape devices:
+               l,m,h,c                       density of the tape cartridge type
+                                             (not all devices can read and
+                                             write all formats)
+
+               For QIC-24 tape devices (Emulex MT-02):
+               l                             QIC-11 Format
+               m,h,c                         QIC-24 Format
+

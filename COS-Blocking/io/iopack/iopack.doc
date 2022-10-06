@@ -1,0 +1,134 @@
+C     ++++++++++
+C     CALL IOPEN(IOLUN,NAME)
+C     This routine associates a disk or tape filename
+C     with a given IOPACK LUN.  It should be called
+C     to specify what file to access.  If it is not,
+C     then unit n will refer to logical name IOP00n.
+C     ----------
+C     ++++++++++
+C     CALL IOCLOS(IOLUN) where IOLUN is the
+C     number of the IOPACK unit to close.
+C     Note that IOCLOS of a tape which was
+C     written to causes two extra EOFs to appended.
+C     The tape is left positioned between the two EOFs.
+C     ----------      
+C     ++++++++++
+C     CALL BUFFEROUT(IOLUN,PARITY,IFWA,ILWA)   ,where
+C     IOLUN is the IOPACK LUN involved (these are
+C     separate and distinct from FORTRAN LUNs and VMS
+C     channels as well.
+C     PARITY is ignored and exists only for compatibility
+C     with systems on the Mesa.
+C     IFWA is the first word address to be written out.
+C     ILWA is the last word address to be written out.
+C     It is assumed that each word is exactly 4 bytes long
+C     (which is the case for normal integers or reals).
+C     BUFFEROUT is an asynchronous operation which is very
+C     similar to WRTAPE.
+C     ----------
+C     ++++++++++
+C     CALL WRTAPE(IOLUN,MODE,NTYPE,NADDR,NBYTES)
+C     IOLUN is the IOPACK LUN which is completely separate & distinct
+C     from FORTRAN LUNs or VMS channels.
+C     MODE & NTYPE are ignored and exist only for compatibility with
+C     implementations on the Mesa.
+C     NADDR is the starting address of the data to write out.
+C     NBYTES is the number of 8 bit bytes (not words) to write out.
+C     WRTAPE is asynchronous!!!!
+C     ----------
+C     ++++++++++
+C     CALL BUFFERIN(IOLUN,PARITY,IFWA,ILWA)
+C     IOLUN is the IOPACK LUN which is separate & distinct from
+C     a FORTRAN LUN or a VMS channel.
+C     PARITY is ignored and exists only for compatibility
+C     with the systems on the Mesa.
+C     IFWA is the address of the first word to read in.
+C     ILWA is the address of the last word to read in.
+C     It is assumed that the words being read in are
+C     each 4 bytes long (as are normal integers and reals).
+C     This routine is asynchronous & is very similar to RDTAPE.
+C     ----------
+C     ++++++++++
+C     CALL RDTAPE(IOLUN,MODE,NTYPE,NADDR,NBYTES)
+C     IOLUN is the IOPACK LUN which is separate and distinct
+C     from FORTRAN LUNs or VMS channels.
+C     MODE & NTYPE are ignored and exist only for compatibility
+C     with implementations of this routine on the Mesa.
+C     NADDR is the starting address to read into.
+C     NBYTES is the maximum number of bytes (not words) to read in.
+C     This routine is asynchronous!
+C     ----------
+C     ++++++++++
+C     NBYTES = LENGTHF(IOLUN)
+C     This routine returns the number of WORDS (not bytes)
+C     involved in the last transfer on IOPACK
+C     LUN IOLUN.  It also forces completion
+C     of all outstanding transfers on the unit.
+C     ----------
+C     ++++++++++
+C     IF(UNIT(IOLUN))10,20,30
+C     Causes control to be transferred to statement 10
+C        on success, statement 20 on EOF, and statement 30 on error.
+C     IOLUN is the usual IOPACK LUN.
+C     The actual values returned are:
+C        SUCCESS -1.0
+C        EOF      0.0
+C        ERROR    1.0
+C     Execution of this function forces completion of any
+C     outstanding requests on IOLUN.
+C     ----------
+C     ++++++++++
+C     CALL IOWAIT(IOLUN,NSTATE,NBYTES)
+C     This routine causes completion of any outstanding IO on
+C     IOPACK LUN IOLUN.  Then it returns the number of bytes
+C     (not words) transferred in NBYTES and sets NSTATE as follows:
+C        SUCCESS  0
+C        EOF      1
+C        ERROR    2, and potentially for tape transfers (no guarantees!)
+C        EOT      3
+C     ----------
+C     ++++++++++
+C     CALL ENDFILE(IOLUN)
+C     This fairly useless routine just calls IOCLOS(IOLUN).
+C     It is here for compatibility with Mesa implementations.
+C     ----------
+C     ++++++++++
+C     CALL SKIPFILE(IOLUN)
+C     This routine works only for magtapes and
+C     allows you to skip forward past the next EOF marker.
+C     IOLUN is the usual IOPACK LUN.
+C     ----------
+C     ++++++++++
+C     CALL BACKFILE(IOLUN)
+C     This routine which only works for real
+C     magtapes, positions you immediately before
+C     the last previous EOF on the tape associated
+C     with IOPACK LUN IOLUN.
+C     ----------
+C     ++++++++++
+C     CALL SKIPSPACE(IOLUN)
+C     This routine allows you to skip forward
+C     over one physical record.
+C     It only works if the device associated with 
+C     IOPACK LUN IOLUN is a real tape drive.
+C     ----------
+C     ++++++++++
+C     CALL BACKSPACE(IOLUN)
+C     Only works for a real tape drive connected
+C     to IOPACK LUN IOLUN.
+C     Backs up 1 record.
+C     ----------
+C     ++++++++++
+C     CALL BSTAPE(IOLUN,MODE)
+C     Only works for a real tape drive connected
+C     to IOPACK LUN IOLUN.
+C     MODE is ignored and exists solely for compatibility
+C     with Mesa implementations.
+C     This routine backs up 1 physical record on tape.
+C     ----------
+C     ++++++++++
+C     CALL REWIND(IOLUN)
+C     This routine rewinds the IOPACK LUN IOLUN.
+C     Oddly enough, this routine works for tapes
+C     or disks!
+C     ----------

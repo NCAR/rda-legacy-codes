@@ -1,0 +1,160 @@
+      SUBROUTINE UBLOK (ITAPE,MODE,KTYPE,IBUF,KMAX,KBLOK,ICD,IEOF)
+      SAVE
+C***********************************************************************
+C
+C DIMENSION OF           ICD(KBLOK),IBUF(KMAX)
+C ARGUMENTS
+C
+C LATEST REVISION        DECEMBER, 1984
+C
+C PURPOSE                UBLOK UNBLOCKS FIXED LENGTH CHARACTER OR BINARY
+C                        LOGICAL RECORDS (SUCH AS CARD IMAGES) FROM
+C                        LARGER PHYSICAL RECORDS ON A BLOCKED CRAY-1
+C                        DATASET.
+C
+C                        EACH LOGICAL RECORD MUST BE AN INTEGER MULTIPLE
+C                        OF 64 BITS LONG.  ONE OR MORE LOGICAL RECORDS
+C                        MUST BE CONTAINED IN A PHYSICAL RECORD AND
+C                        LOGICAL RECORDS MUST NOT OVERLAP INTO THE NEXT
+C                        PHYSICAL RECORD.
+C
+C                        CRAY-1 USERS WHO WISH TO UNBLOCK FIXED-LENGTH
+C                        CHARACTER RECORDS ON PHYSICAL TAPE SHOULD
+C                        OBTAIN A COPY OF THE NCAR CONSULTING OFFICE
+C                        DOCUMENTATION "CRAY DIRECT TAPE CONNECTION"
+C                        BY MARC NELSON.
+C
+C                        SEE PACKAGE UZBLOK ON LIBRARY CRAYLIB FOR
+C                        UNBLOCKING RECORDS WHICH ARE A FIXED NUMBER OF
+C                        BITS IN LENGTH.
+C
+C USAGE                  CALL UBLOK (ITAPE,MODE,KTYPE,IBUF,KMAX,KBLOK,
+C                                    ICD,IEOF)
+C
+C ARGUMENTS
+C ON INPUT               ITAPE
+C                          INPUT DATA SET LOGICAL UNIT NUMBER.
+C
+C                        MODE
+C                          MODE FOR TAPE RECORD.
+C                          = 1  BIN, NO CHARACTER CONVERSION.
+C
+C                        KTYPE
+C                          NOT USED.
+C
+C                        IBUF
+C                          INPUT BUFFER.
+C
+C                        KMAX
+C                          MAXIMUM PHYSICAL RECORD SIZE PLUS ONE WORD.
+C
+C                        KBLOK
+C                          NUMBER OF 64-BIT WORDS IN EACH LOGICAL
+C                          RECORD.
+C
+C ARGUMENTS
+C ON OUTPUT              ICD
+C                          OUTPUT BUFFER FOR UNBLOCKED LOGICAL RECORD
+C                          (MUST BE AT LEAST KBLOK WORDS LONG).
+C
+C                        IEOF
+C                          END OF FILE FLAG.
+C                          = 0  A LOGICAL RECORD HAS BEEN UNBLOCKED.
+C                          = 1  INDICATES AN EOF WAS READ.
+C
+C SPECIAL CONDITIONS     .  WILL READ FROM ANY FILE ON ONE DATA SET.
+C                        .  LOGICAL RECORD MUST BE AN INTEGER MULTIPLE
+C                           OF 64 BITS LONG.
+C                        .  WILL DROP PHYSICAL RECORDS WITH A PARITY
+C                           ERROR.
+C
+C I/O                    FORTRAN LOGICAL UNIT ITAPE - INPUT DATA SET.
+C                        WHEN AN EOF IS READ, THE FOLLOWING MESSAGE IS
+C                        PRINTED:
+C                            EOF ON BLOCK READ, PHYS REC = NN,
+C                            LOG REC = NN  .
+C                        WHEN A PHYSICAL RECORD IS LONGER THAN KMAX, THE
+C                        FOLLOWING MESSAGE IS PRINTED:
+C                            ACTUAL PHYSICAL RECORD = NN,
+C                            MAXIMUM PHYSICAL RECORD = NN  .
+C                        WHEN IOWAIT RETURNS STATUS OF 2 OR 3, THE
+C                        FOLLOWING MESSAGE IS PRINTED:
+C                            XX TROUBLE ON BLOCK READ TAPE = NN,
+C                            STATE = NN, WDS = NN, REC = NN,
+C                            LOG REC = NN  .  THIS RECORD IS NOT
+C                            PROCESSED.
+C
+C PRECISION              NOT APPLICABLE
+C
+C REQUIRED LIBRARY       NONE, BUT SEE REFERENCES IN "PURPOSE"
+C FILES                  SECTION ABOVE.
+C
+C LANGUAGE               FORTRAN
+C
+C PORTABILITY            THIS UTILITY IS SPECIFIC TO THE CRAY-1.
+C
+C HISTORY                WRITTEN BY ROY JENNE IN FEBRUARY 1967
+C                        FOR NCAR'S CDC MACHINES.  ADAPTED FOR
+C                        USE ON NCAR'S CRAY-1 MACHINES IN JANUARY
+C                        1983 BY MEMBERS OF THE SCIENTIFIC
+C                        COMPUTING DIVISION.
+C
+C***********************************************************************
+      DIMENSION       ICD(KBLOK) ,IBUF(KMAX)
+      DATA NK,NC /10,11/
+      DATA NUM/0/
+      IEOF = 0
+      IF (NC .GT. NK) GO TO 103
+  101 J = NC*KBLOK-KBLOK
+      DO 102 I=1,KBLOK
+         J = J+1
+         ICD(I) = IBUF(J)
+  102 CONTINUE
+      NUM = NUM+1
+      NC = NC+1
+      RETURN
+C
+C READ IN A RECORD
+C
+  103 DO 104 I=1,KMAX
+         IBUF(I) = 0
+  104 CONTINUE
+  105 CALL RDTAPE (ITAPE,MODE,KTYPE,IBUF,KMAX)
+      CALL IOWAIT (ITAPE,NSTATE,NWDS)
+      IF (NSTATE .EQ. 1) GO TO 108
+      NREC = NREC+1
+      IF (NSTATE .NE. 0) GO TO 106
+      IF (NWDS .LT. KMAX) GO TO 107
+      PRINT 1001 , NWDS,KMAX
+      CALL EXIT
+  106 PRINT 1002 , ITAPE,NSTATE,NWDS,NREC,NUM
+      IF (NSTATE .EQ. 3) GO TO 108
+      GO TO 105
+  107 NK = NWDS/KBLOK
+      IF (NK .EQ. 0) GO TO 106
+      NC = 1
+      GO TO 101
+  108 PRINT 1003 , NREC,NUM
+      NREC = 0
+      NUM = 0
+      NC = KMAX
+      NK = 0
+      IEOF = 1
+      RETURN
+C
+ 1001 FORMAT (1H0,*ACTUAL PHYSICAL RECORD=*I8,5X,
+     1        *MAXIMUM PHYSICAL RECORD=*I8)
+ 1002 FORMAT (1H0,* XX TROUBLE ON BLOCK READ,TAPE=*I3,2X,*STATE=*I3,2X,
+     1        *WDS=*I10,2X,*REC=*I6,2X,*LOG REC=*I10/
+     2        5X,*THIS RECORD NOT PROCESSED*)
+ 1003 FORMAT (1H0,* EOF ON BLOCK READ, PHYS REC=*I6,2X,*LOG REC=*I10)
+C
+C REVISION HISTORY---
+C
+C JANUARY 1978     DELETED REFERENCES TO THE  *COSY  CARDS AND
+C                  ADDED REVISION HISTORY
+C
+C DECEMBER 1982    CONVERTED TO EXECUTE ON CRAY1
+C-----------------------------------------------------------------------
+C
+      END

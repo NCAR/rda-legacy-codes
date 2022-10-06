@@ -1,0 +1,87 @@
+GBYTES code is used by many DSS programs to handle binary packing.  There are
+versions available for most popular computer systems as well as FORTRAN and C
+versions which have application on many computer systems.  Most users should
+be able to simply select the version for their system and assemble (compile)
+this version and link it to their main program.
+
+The file "gbytes.doc" contains more detailed information on the various
+versions of GBYTES in this directory.  Some files were added later and are
+not discussed in this document.  "test.for" is a general fortran test
+program.  Other files in this directory are versions summarized in the
+following list (when labelled by version number, version 1 is recommended):
+
+	 File                   Content
+	c.c            C Version
+	c32.c          C Version, set up for 32 bit word size, and SUN
+			f77 FORTRAN to C linkage.
+	c64.c          C Version, set up for 64 bit word size, and Cray
+			cft77 FORTRAN to C linkage.
+	cdc.v1         Control Data - Version 1
+	cdc.v2         Control Data - Version 2
+	cdc.v3         Control Data - Version 3 (Cyber205)
+	cft77.f        Fortran for Cray running UNICOS (from f77.f)
+	cray.v1        Cray - Version 1
+	cray.v2        Cray - Version 2
+	cray.v3        Cray - Version 3
+	dec.v1         DEC/VMS - Version 1
+	f77.f          Unix fortran
+	f90.f          Unix fortran 90
+	f77hp.f        Minor mod to f77.f for HP execution
+	fortran.for    Generic FORTRAN with INITAL
+	ibm.mac        IBM macros which may be needed on some systems
+	ibm.v1         IBM version
+	msgbytei.for   Microsoft fortran for PCs
+	msgbytes.c     Microsoft c for PCs
+	msgbytes.for   General PC fortran
+	ncarg.c        Slightly faster C Version but only for 32-bit machines
+	rs6000.f       IBM RS6000 with INITAL
+	uni.v1         UNIVAC - Version 1
+	uni.v2         UNIVAC - Version 2
+	unix.f         Unix fortran with INITAL
+	swap.for       byte swapping routine for PC
+	swapdec.f      byte swapping routine for DEC ALPHA systems
+
+PCs:
+The "msgbytei.for" and "msgbytes.c" files are PC versions of GBYTES for
+Microsoft fortran and C users. "msgbytes.c" is a minor variation of "c.c" and
+"msgbytei.for" is an interface routine which allows fortran programs to call
+C subroutines.  The fortran package also contains the SWAP4 routine which can
+be used the handle the byte swapping problem on PCs. "msgbytes.for" is a
+stand-alone Fortran version of GBYTES and SBYTES for use with Microsoft
+Fortran.  It could probably be adapted for other PC compilers.
+
+DEC:
+"dec.v1" contains fortran subroutines and macros apropos VMS operating
+systems.  ULTRIX and Alpha O.S. can use one of the Unix versions in
+conjunction with "swap.for".  The "swap.for" program contains byte swapping
+subroutines for 4 and 2 byte swapping.  These are primarily useful on DEC
+machines for handling the byte swapping problem.
+
+UNIX:
+"c.c" is the general C version and "unix.f" is a FORTRAN version for Sun
+Unix.  Note that "unix.f and the generic FORTRAN version require a call to
+INITAL to initialize the routines.  Other versions are set up for the
+specific systems and do not have the INITAL entry point. "rs6000.f" is a
+slightly modified version of "unix.f" which should work on IBM RS6000
+stations. "f77.f" has been tested on a Sun, IBM RS6000, and DEC Alpha.
+"f77.f" does not require initialization with a call to INITAL and the same
+source executes on Sun, IBM RS6000 and DEC Alpha. "ncarg.c" is slightly
+faster than "c.c" but only runs on 32-bit archetectures.
+
+
+Some timing tests were made using "test.for" (expanded to loop 10 times).
+All tests were with optimization on (-O option).  The c versions on the DEC
+Alpha required the following substitution added after the "#include stdio" to
+avoid default 64-bit definition of "long" variables: "define long int".
+Times are the sum of user and system time in seconds as produced by csh
+"time":
+
+	   Sun SPARC @ 25 MHz  Sun SPARC @ 33 MHz   DEC Alpha OSF/1  IBM RS6000
+ Gbytes     Fort.Ver. 1.4     Fort.Ver 1.4,patch 2  Fortran Ver 3.3
+ Version     Release 1Mar91      release 20Aug91    release 26Feb93
+
+  c.c            56.8              39.9                6.89
+
+  ncarg.c        45.2              33.2                5.76
+
+  f77.f          53.1              42.8                4.28           8.77

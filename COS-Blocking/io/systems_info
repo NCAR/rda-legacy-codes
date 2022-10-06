@@ -1,0 +1,279 @@
+______________________________________________________________________________
+CRAY UNICOS
+
+       Word Size                        - 64 bit
+
+       GBYTES version                   - cray.v1
+
+       Alternate GBYTES version         - cft77.f
+
+       BYTE reversal                    - NO
+
+       FORTRAN Direct Access
+	   File format                  - plain binary (see "assign" command)
+	   OPEN length specification    - bytes
+	   READ short last record?      - Yes, IOSTAT = 0; IOSTAT = 1097
+					  after attempt to READ next record
+
+       Sequential Binary file format    - COSblocked is default
+
+       ASCII file format                - newline delimited
+
+       Comments -
+
+	 In formatted IO, UNICOS 7 has limits 267 chars input and 133 output
+	 which may be overridden with segloader directives.  Version 8 will
+	 recognize OPEN (...,recl=___,...).  In the mean time, add segloader
+	 directives; e.g.,
+
+	 '-D SET=$RBUFLN:522;COMMONS=$RFDCOM:531;SET=$WBUFLN:166;COMMONS=$WFDCOM:175'
+	 specifies a read max lrecl = 522 bytes and a write max of 166 bytes.
+
+______________________________________________________________________________
+SUN OS UNIX
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - f77.f
+
+       Alternate GBYTES versions        - unix.f
+
+       BYTE reversal                    - NO
+
+       FORTRAN Direct Access
+	   File format                  - plain binary
+	   OPEN length specification    - bytes
+	   READ short last record?      - Yes, IOSTAT = 0; IOSTAT = -1 after
+					  attempt to READ next record
+
+       Sequential Binary file format    - f77 control bytes
+
+       ASCII file format                - newline delimited
+
+       Comments -
+______________________________________________________________________________
+DEC VMS
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - dec.v1
+
+       Alternate GBYTES versions        - none
+
+       BYTE reversal                    - YES
+
+       FORTRAN Direct Access
+	   File format                  - unique
+	   OPEN length specification    - words
+	   READ short last record?      -
+
+       Sequential Binary file format    -
+
+       ASCII file format                -
+
+       Comments -
+
+	ftp to the DEC system creates 512 byte records.
+	Code is available to make a plain binary file
+	from the file created by ftp.
+
+	If a user is on a DEC VMS system using ftp, it is
+	difficult to mix the case of entries.  Enclosing the
+	objects of commands in double quotes will usually
+	fix this problem (ie cd "COADS").
+______________________________________________________________________________
+IBM PC and clones running Microsoft Fortran (and C)
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - msgbytes.for
+
+       Alternate GBYTES versions        - msgbytes.c with msgbytei.for
+
+       BYTE reversal                    - YES
+
+       FORTRAN Direct Access
+	   File format                  - plain binary
+	   OPEN length specification    - bytes
+	   READ short last record?      - Yes, IOSTAT = -1
+
+       Sequential Binary file format    -
+
+       ASCII file format                - carriage return, newline delimited
+
+       Comments -
+______________________________________________________________________________
+IBM PC and clones running Digital Visual Fortran
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - msgbytes.for
+
+       Alternate GBYTES versions        -
+
+       BYTE reversal                    - YES
+
+       FORTRAN Direct Access
+	   File format                  - plain binary
+	   OPEN length specification    - 4 byte groups with unformatted I/O
+					- bytes with formatted I/O
+					  (isn't DEC wonderful)
+	   READ short last record?      -
+
+       Sequential Binary file format    -
+
+       ASCII file format                - carriage return, newline delimited
+
+       Comments -                       - WARNING, calling GBYTES with a
+					  character variable seems to fail with
+					  a diagnostic about differing number of
+					  arguments.  Speculation is that DEC
+					  uses an extra argument with character
+					  variables to contain the string length.
+______________________________________________________________________________
+IBM Mainframes
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - ibm.v1
+
+       Alternate GBYTES versions        - none
+
+       BYTE reversal                    - NO
+
+       FORTRAN Direct Access
+	   File format                  -
+	   OPEN length specification    -
+	   READ short last record?      -
+
+       Sequential Binary file format    -
+
+       ASCII file format                -
+
+       Comments -
+______________________________________________________________________________
+IBM RS6000
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - f77.f
+
+       Alternate GBYTES versions        - unix.f or rs6000.f
+
+       BYTE reversal                    - NO
+
+       FORTRAN Direct Access
+	   File format                  - plain binary
+	   OPEN length specification    - bytes
+	   READ short last record?      - Yes, IOSTAT = 122
+
+       Sequential Binary file format    - f77
+
+       ASCII file format                - newline delimited
+
+       Comments -
+
+	 Fortran character string default size limit is 500 bytes.  The compiler
+	 option "-q charlen=nnnn"  will define a larger default.  The actual
+	 compiler is xlf and f77 simply invokes xlf.
+
+	 The driver for Exabytes (and probably other tapes) has a blocksize
+	 definition which must be set to "0" for our device read codes to
+	 work.  It is often set to some specific block length by default.
+
+______________________________________________________________________________
+SGI UNIX
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - f77.f
+
+       Alternate GBYTES versions        - unix.f
+
+       BYTE reversal                    - NO
+
+       FORTRAN Direct Access
+	   File format                  - plain binary
+	   OPEN length specification    - 32-bit words (using f77)
+	   OPEN length specification    - bytes (using f90)
+	   READ short last record?      - No, IOSTAT = 168
+
+       Sequential Binary file format    - f77 control bytes
+
+       ASCII file format                - newline delimited
+
+       Comments -  Beware that IOSTAT returns are not consistent between
+		   Sun and SGI systems and some DSS read codes may not work
+		   properly if specific codes are expected from IOSTAT.
+______________________________________________________________________________
+DEC ULTRIX
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - f77.f
+
+       Alternate GBYTES versions        - none
+
+       BYTE reversal                    - YES
+
+       FORTRAN Direct Access
+	   File format                  - plain binary
+	   OPEN length specification    - 32-bit words
+	   READ short last record?      -
+
+       Sequential Binary file format    -
+
+       ASCII file format                - newline delimited
+
+       Comments -
+
+	on DEC 3100 compile "-static"
+______________________________________________________________________________
+DEC ALPHA
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - f77.f
+
+       Alternate GBYTES versions        - none
+
+       BYTE reversal                    - YES, (fortran open option,
+						convert='big_endian')
+       FORTRAN Direct Access
+	   File format                  - plain binary
+	   OPEN length specification    - 32-bit words
+	   READ short last record?      - No, IOSTAT = 39
+
+       Sequential Binary file format    -
+
+       ASCII file format                - newline delimited
+
+       Comments -
+	 SWAP4 using LOGICAL*1 does not seem to work.  CHARACTER*1 replacing
+	 LOGICAL*1 seems to work, but the best choice for byte swapping is
+	 the convert='big_endian' option in the OPEN statement.
+	 
+	 If input is a character variable holding binary data the convert =
+	 'big_endian' will not work.  The swap4 approach is necessary.
+	 
+______________________________________________________________________________
+HP UNIX
+
+       Word Size                        - 32 bit
+
+       GBYTES version                   - f77hp.f
+
+       Alternate GBYTES versions        -
+
+       BYTE reversal                    - NO
+
+       FORTRAN Direct Access
+	   File format                  - plain binary
+	   OPEN length specification    - bytes
+	   READ short last record?      - No, IOSTAT = 956
+
+       Sequential Binary file format    -
+
+       ASCII file format                - newline delimited
+
+       Comments -

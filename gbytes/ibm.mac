@@ -1,0 +1,130 @@
+         MACRO                                                          00020000
+&NAME    SAVE  &REG,&CODE,&ID                                           00040000
+         LCLA  &A,&B,&C                                                 00060000
+         LCLC  &E,&F,&G,&H                                              00080000
+         AIF   ('&REG' EQ '').E1                                        00100000
+         AIF   ('&ID' EQ '').NULLID                                     00120000
+         AIF   ('&ID' EQ '*').SPECID                                    00140000
+&A       SETA  ((K'&ID+2)/2)*2+4                                        00160000
+&NAME    B     &A.(0,15)                         BRANCH AROUND ID       00180000
+&A       SETA  K'&ID                                                    00200000
+         DC    AL1(&A)                           LENGTH OF IDENTIFIER   00220000
+.CONTB   AIF   (&A GT 32).SPLITUP                                       00240000
+.CONTAA  AIF   (&A GT 8).BRAKDWN                                        00260000
+&E       SETC  '&ID'(&B+1,&A)                                           00280000
+         DC    CL&A'&E'                          IDENTIFIER             00300000
+         AGO   .CONTA                                                   00320000
+.BRAKDWN ANOP                                                           00340000
+&E       SETC  '&ID'(&B+1,8)                                            00360000
+         DC    CL8'&E'                           IDENTIFIER             00380000
+&B       SETA  &B+8                                                     00400000
+&A       SETA  &A-8                                                     00420000
+         AGO   .CONTAA                                                  00440000
+.SPLITUP ANOP                                                           00460000
+&E       SETC  '&ID'(&B+1,8)                                            00480000
+&F       SETC  '&ID'(&B+9,8)                                            00500000
+&G       SETC  '&ID'(&B+17,8)                                           00520000
+&H       SETC  '&ID'(&B+25,8)                                           00540000
+         DC    CL32'&E.&F.&G.&H'                      IDENTIFIER        00560000
+&B       SETA  &B+32                                                    00580000
+&A       SETA  &A-32                                                    00600000
+         AGO   .CONTB                                                   00620000
+.NULLID  ANOP                                                           00640000
+&NAME    DS    0H                                                       00660000
+         AGO   .CONTA                                                   00680000
+.SPECID  AIF   ('&NAME' EQ '').CSECTN                                   00700000
+&E       SETC  '&NAME'                                                  00720000
+&A       SETA  1                                                        00740000
+.CONTQ   AIF   ('&E'(1,&A) EQ '&E').LEAVE                               00760000
+&A       SETA  &A+1                                                     00780000
+         AGO   .CONTQ                                                   00800000
+.LEAVE   ANOP                                                           00820000
+&B       SETA  ((&A+2)/2)*2+4                                           00840000
+&NAME    B     &B.(0,15)                         BRANCH AROUND ID       00860000
+         DC    AL1(&A)                                                  00880000
+         DC    CL&A'&E'                          IDENTIFIER             00900000
+         AGO   .CONTA                                                   00920000
+.CSECTN  AIF   ('&SYSECT' EQ '').E4                                     00940000
+&E       SETC  '&SYSECT'                                                00960000
+&A       SETA  1                                                        00980000
+         AGO   .CONTQ                                                   01000000
+.E4      IHBERMAC 78,360                    CSECT NAME NULL             01020000
+.CONTA   AIF   (T'&REG(1) NE 'N').E3                                    01040000
+         AIF   ('&CODE' EQ 'T').CONTC                                   01060000
+         AIF   ('&CODE' NE '').E2                                       01080000
+&A       SETA  &REG(1)*4+20                                             01100000
+         AIF   (&A LE 75).CONTD                                         01120000
+&A       SETA  &A-64                                                    01140000
+.CONTD   AIF   (N'&REG NE 2).CONTE                                      01160000
+         STM   &REG(1),&REG(2),&A.(13)           SAVE REGISTERS         01180000
+         MEXIT                                                          01200000
+.CONTE   AIF   (N'&REG NE 1).E3                                         01220000
+         ST    &REG(1),&A.(13,0)                 SAVE REGISTER          01240000
+         MEXIT                                                          01260000
+.CONTC   AIF   (&REG(1) GE 14 OR &REG(1) LE 2).CONTF                    01280000
+         STM   14,15,12(13)                      SAVE REGISTERS         01300000
+&A       SETA  &REG(1)*4+20                                             01320000
+         AIF   (N'&REG NE 2).CONTG                                      01340000
+         STM   &REG(1),&REG(2),&A.(13)           SAVE REGISTERS         01360000
+         MEXIT                                                          01380000
+.CONTG   AIF   (N'&REG NE 1).E3                                         01400000
+         ST    &REG(1),&A.(13,0)                 SAVE REGISTER          01420000
+         MEXIT                                                          01440000
+.CONTF   AIF   (N'&REG NE 2).CONTH                                      01460000
+         STM   14,&REG(2),12(13)                 SAVE REGISTERS         01480000
+         MEXIT                                                          01500000
+.CONTH   AIF   (N'&REG NE 1).E3                                         01520000
+         STM   14,&REG(1),12(13)                 SAVE REGISTERS         01540000
+         MEXIT                                                          01560000
+.E1      IHBERMAC 18,360                    REG PARAM MISSING           01580000
+         MEXIT                                                          01600000
+.E2      IHBERMAC 37,360,&CODE              INVALID CODE SPECIFIED      01620000
+         MEXIT                                                          01640000
+.E3      IHBERMAC 36,360,&REG               INVALID REGS. SPECIFIED     01660000
+         MEND                                                           01680000
+         MACRO                                                          00020000
+&NAME    RETURN &REG,&PARA,&RC=O                                        00040000
+         LCLA  &A                                                       00060000
+         AIF   ('&NAME' EQ '').GO                                       00080000
+&NAME    DS    0H                                                       00100000
+.GO      AIF   ('&REG' EQ '').CONTA                                     00120000
+         AIF   ('&RC' EQ '(15)').SPECRT                                 00140000
+.COMBACK ANOP                                                           00160000
+&A       SETA  &REG(1)*4+20                                             00180000
+         AIF   (&A LE 75).CONTB                                         00200000
+&A       SETA  &A-64                                                    00220000
+.CONTB   AIF   (N'&REG NE 2).CONTC                                      00240000
+         LM    &REG(1),&REG(2),&A.(13)           RESTORE THE REGISTERS  00260000
+         AGO   .CONTA                                                   00280000
+.SPECRT  AIF   ('&REG(1)' NE '14' AND '&REG(1)' NE '15').COMBACK        00300000
+         AIF   ('&REG(1)' EQ '14' AND N'&REG  EQ 1).COMBACK             00320000
+         AIF   ('&REG(1)' EQ '15' AND N'&REG EQ 1).CONTA                00340000
+         AIF   ('&REG(1)' EQ '14').SKIP                                 00360000
+         AIF   ('&REG(2)' EQ '0').ZTWO                                  00380000
+.LM      LM    0,&REG(2),20(13)                  RESTORE THE REGISTERS  00400000
+         AGO   .CONTA                                                   00420000
+.ZTWO    L     0,20(13,0)                        RESTORE REGISTER ZERO  00440000
+         AGO   .CONTA                                                   00460000
+.SKIP    L     14,12(13,0)                       RESTORE REGISTER 14    00480000
+         AIF   ('&REG(2)' EQ '15').CONTA                                00500000
+         AIF   ('&REG(2)' EQ '0').ZTWO                                  00520000
+         AGO   .LM                                                      00540000
+.CONTC   AIF   (N'&REG NE 1).ERROR1                                     00560000
+         L     &REG(1),&A.(13,0)                 RESTORE REGISTER       00580000
+.CONTA   AIF   ('&PARA' EQ '').CONTD                                    00600000
+         AIF   ('&PARA' NE 'T').ERROR2                                  00620000
+         MVI   12(13),X'FF'                      SET RETURN INDICATION  00640000
+.CONTD   AIF   ('&RC' EQ 'O').CONTE                                     00660000
+         AIF   ('&RC'(1,1) EQ '(').ISAREG                               00680000
+         LA    15,&RC.(0,0)                      LOAD RETURN CODE       00700000
+         AGO   .CONTE                                                   00720000
+.ISAREG  AIF   ('&RC(1)' EQ '15').CONTE                                 00740000
+         IHBERMAC 61,,&RC                                               00760000
+         MEXIT                                                          00780000
+.CONTE   BR    14                                RETURN                 00800000
+         AGO   .END                                                     00820000
+.ERROR1  IHBERMAC 36,,&REG                                              00840000
+         MEXIT                                                          00860000
+.ERROR2  IHBERMAC 37,,&PARA                                             00880000
+.END     MEND                                                           00900000
+

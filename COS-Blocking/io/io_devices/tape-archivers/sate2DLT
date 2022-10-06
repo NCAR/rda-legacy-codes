@@ -1,0 +1,25 @@
+#! /bin/csh
+cd /bison/tmp/chifan/SATE
+set dlt7 = '/dev/rmt/7n'
+mt -f $dlt7 rew
+#
+tar cvbf 64 $dlt7 ds6850.sirs.196904-197104
+tar cvbf 64 $dlt7 ds6920.vtpr.197211-197901 ds6910.vtpr.197409
+tar cvbf 64 $dlt7 ds9900.sirs.1969-1972
+tar cvbf 64 $dlt7 ds3534.sirs.197301-197902
+tar cvbf 64 $dlt7 ds6790.scr.197212-197412
+tar cvbf 64 $dlt7 ds7010.msutmp.1979-1993
+tar cvbf 64 $dlt7 ds7400.hrc.1971-1987
+tar cvbf 64 $dlt7 ds7401.hrc.1971-1985
+tar cvbf 64 $dlt7 ds7015.prec.1979-1993
+tar cvbf 64 $dlt7 ds6700.satbright.196701-197208
+tar cvbf 64 $dlt7 ds6760.olrvis.197406-200104
+tar cvbf 64 $dlt7 ds7300.erbe.197811-198310
+tar cvbf 64 $dlt7 ds6800.albedo.196904-197002 ds6840.olrhrc.197406-199607
+tar cvbf 64 $dlt7 ds9900.satwnd.1967-1972
+tar cvbf 64 $dlt7 ds7200.goeswind.197410-198402
+tar cvbf 64 $dlt7 ds3534.satwnd.197301-200202
+tar cvbf 64 $dlt7 ds7160.insat.198403-198803
+tar cvbf 64 $dlt7 ds6860.tovs.197901-198005
+mt -f $dlt7 status
+date

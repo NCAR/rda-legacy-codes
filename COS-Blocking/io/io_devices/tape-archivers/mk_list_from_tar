@@ -1,0 +1,27 @@
+#! /bin/csh
+cd /fs/scd/home0/chifan/DJ_DLT
+set nmx = `wc $1 | awk '{print $1}'`
+echo ' '
+echo 'LIST OF FILES ON DLT ?:'
+echo '                      This is a unix tar tape with multiple tar files.'
+echo '                      Blocksize used: 32768 bytes or 64 blocks.'
+echo '                      Please use "no rewind" device name.'
+echo '---------------------------------------------------------------------------'
+echo 'File    MSS                               Content'
+echo '  No    Name'
+echo '---------------------------------------------------------------------------'
+@ nn=1
+while ( $nn <= $nmx )
+set aline = "$nn "`head -$nn $1 | tail -1 | mygets`
+#head -$nn $1 | tail -1 | mygets | awk '{print $10"	"$6}'
+echo $aline | awk '{print "  "$1"	"$6"		"$10}'
+if ( $nn < 10 ) then
+# echo '   '$nn'  '`echo $aline | awk '{print $9"		"$5}'`
+else if ( $nn >= 100 ) then
+#  echo ' '$nn'  '`echo $aline | awk '{print $9"		"$5}'`
+else
+#  echo '  '$nn'  '`echo $aline | awk '{print $9"		"$5}'`
+endif
+@ nn++
+end
+echo '---------------------------------------------------------------------------'

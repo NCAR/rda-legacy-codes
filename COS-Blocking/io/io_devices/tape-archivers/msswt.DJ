@@ -1,0 +1,6 @@
+#
+wait:
+if(-e $1) goto exit
+sleep 20
+goto wait
+exit:

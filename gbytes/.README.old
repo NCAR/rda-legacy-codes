@@ -1,0 +1,49 @@
+GBYTES code is used by many DSS programs to handle binary packing.
+There are versions available for most popular computer systems as well
+as FORTRAN and C versions which have application on many computer systems.
+Most users should be able to simply select the version for their system
+and assemble (compile) this version and link it to their main program.
+
+The file "gbytes.doc" contains more detailed information on
+the various versions of GBYTES in this directory.  Some files were added
+later and are not discussed in this document.
+
+The "msgbytei.for" and "msgbytes.c" files are PC versions of GBYTES for
+Microsoft fortran and C users.  The C file is a minor variation of the
+C.C file and the fortran file is an interface routine which allows
+fortran programs to call C subroutines.  The fortran package also
+contains the SWAP4 routine which can be used the handle the byte
+swapping problem on PCs.  The "swap.for" program contains byte swapping
+subroutines for 4 and 2 byte swapping.  These are primarily useful
+on DEC machines for handling the byte swapping problem.
+
+The file "msgbytes.for" is a stand alone FORTRAN version of GBYTES
+and SBYTES for use with Microsoft FORTRAN.  It could probably be
+adapted for other PC compilers.  "unix.f" is a FORTRAN version for
+Sun Unix.  Note that "unix.f and the generic FORTRAN version
+require a call to INITAL to initialize the routines.  Other versions
+are set up for the specific systems and do not have the INITAL
+entry point. rs6000.f is a slightly modified version of unix.f which
+should work on IBM RS6000 stations.
+
+Following is a list of the files.  See "gbytes.doc" for more information.
+Where more than one version appears for a particular computer, version 1 (V1)
+is the recommended version.
+
+	 File           Content
+	  test.for       Test Program
+	  cray.v1        Cray - Version 1
+	  cray.v2        Cray - Version 2
+	  cray.v3        Cray - Version 3
+	  cdc.v1         Control Data - Version 1
+	  cdc.v2         Control Data - Version 2
+	  cdc.v3         Control Data - Version 3 (Cyber205)
+	  ibm.v1         IBM version
+	  ibm.mac        IBM macros which may be needed on some systems
+	  dec.v1         DEC - Version 1
+	  c.c            C Version
+	  uni.v1         UNIVAC - Version 1
+	  uni.v2         UNIVAC - Version 2
+	  fortran.for    Generic FORTRAN
+
+

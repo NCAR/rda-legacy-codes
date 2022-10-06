@@ -1,0 +1,1454 @@
+;
+;        This code provides an interface to a number of commonly needed
+;        RMS routines which is callable from a higher level language
+;        (eg FORTRAN).  The routines should work correctly even if user
+;        mode ASTs are permanently disabled, although obviously the
+;        ability to specify a user AST routine via D_ASTSET will not
+;        work very well in that case.
+;
+;
+;        THE R_OPEN code should be removed when we upgrade to VMS 4.0!!!
+;        It has been superceded by the D_OPEN_RAW entrypoint.
+;
+         .title       diskio
+;        .list MEB
+         max_luns = 1000
+         dnm_num = 3
+;        warning!! dnm_num is referred to explicitly as 3
+;        at ctrstr:
+;
+      .PSECT    MACRO_LOCL PIC,USR,CON,REL,LCL,NOSHR,NOEXE,RD,WRT,NOVEC
+lun_table:
+         .blkl       max_luns
+      .PSECT    MACRO_PDAT PIC,USR,CON,REL,LCL,SHR,NOEXE,RD,NOWRT,NOVEC
+dnm1pt:  .address    dnm1
+dnm2pt:  .address    dnm2
+dnm1:    .ascic   %IOP%
+dnm2:    .ascic   %.DAT%
+         dnm_c_bln = .-dnm1-2+dnm_num
+         prm_c_bln = 80    ; set max prompt string size !
+      
+      $fabdef
+      $rabdef
+      $xabdef
+      $xabprodef
+      $xabfhcdef
+      $xabdatdef
+      $namdef
+      $rmsdef
+      $ssdef
+      
+         fab_off = 0
+         rab_off = fab_off + fab$c_bln
+         xab_off = rab_off + rab$c_bln
+         xabh_off = xab_off + xab$c_prolen
+         xabd_off = xabh_off + xab$c_fhclen
+         nam_off = xabd_off + xab$c_datlen
+         dnm_off = nam_off + nam$c_bln
+         ddsc_off = dnm_off + dnm_c_bln
+         prm_off = ddsc_off + 8
+         rss_off = prm_off + prm_c_bln
+         ess_off = rss_off + nam$c_maxrss
+         sts_off = ess_off + nam$c_maxrss
+         stv_off = sts_off + 4
+         len_off = stv_off + 4
+         ast_off = len_off + 4
+         eofmess_off = ast_off + 4
+         ropmask_off = eofmess_off + 4
+         blockio_off = ropmask_off + 4
+         memory_size_per_unit = blockio_off + 4
+            
+memsiz:  .long memory_size_per_unit
+ctrstr:  .ascid   /!AC!3ZB!AC/
+      .PSECT    MACRO_LOCL PIC,USR,CON,REL,LCL,NOSHR,NOEXE,RD,WRT,NOVEC
+errval:  .long    0
+      .PSECT    MACRO_PDAT PIC,USR,CON,REL,LCL,SHR,NOEXE,RD,NOWRT,NOVEC
+errval2: .long    ss$_filalracc
+errval3: .long    ss$_filnotacc
+         $fordef
+errval4: .long     for$_invloguni
+      .PSECT    MACRO_CODE PIC,USR,CON,REL,LCL,SHR,EXE,RD,NOWRT,NOVEC
+      .macro      checkargs   number,?label
+;       This macro neither looks at nor modifies any registers!
+      cmpw        0(ap),#number
+      beql        label
+      jmp         badarg
+label:
+      .endm       checkargs
+      .macro      lunrange,?a
+;       This macro assumes that R7 contains the IOLUN number
+;       On error, R0 will be set to the error code and a RET executed!
+      cmpl         r7,#max_luns
+      blssu        a
+      pushal       errval4
+      calls        #1,g^errmes
+      movl         errval4,r0
+      ret
+a:
+      .endm        lunrange
+      .macro      checklun,?a
+;       This macro assumes that R7 contains the IOLUN number
+;       On error, R0 will be set to the error code and a RET executed!
+      lunrange
+      tstl       lun_table[r7]
+      bnequ       a
+      pushal      errval3
+      calls       #1,g^errmes
+      movl        errval3,r0
+      ret
+a:
+      .endm       checklun
+;
+;     Setup mask values
+;
+    get_bits_to_clear = rab$m_tmo ! rab$m_cco ! rab$m_rne ! -
+   rab$m_cvt ! rab$m_pta ! rab$m_pmt
+    bits_to_clear = get_bits_to_clear
+;
+      
+;
+;     ++++++++++
+;     CALL IFERR(D_PARSE(lun,fname,[dname],rname[,start,end]))
+;     calls the RMS parser to take the filespec fname,
+;     apply the default filespec dname (both of which
+;     can be either CHARACTER variables or null terminated byte arrays)
+;     and return in the CHARACTER variable rname the resultant
+;     full filespec.  Start and end are integer*4 arrays with
+;     7 elements each containing the starting and ending indexes
+;     into the following portions of the full filespec returned
+;     in rname:
+;     1   full filespec (note that end(1) is thus the end of the entire string)
+;     2   node name
+;     3   device name
+;     4   directory name
+;     5   file name  (not including type or version)
+;     6   file type
+;     7   file version number
+;     Note also that rname will be blank padded as needed.
+;     dname is an optional parameter which may be omitted.
+;     Missing components which do not receive RMS defaults
+;     (typically the node name) are indicated by an end value
+;     one less than their start value!
+;     In general, a missing filetype comes back as '.' while
+;     a missing version number comes back as ';'
+;       Note that we DO translate concealed logical device names
+;       and we do convert
+;       the password in a DECNET node spec to the string "PASSWORD".
+;       Both of these behaviors can easily be changed by a slight
+;       modification in the code (see commented out line).
+;       Note also that, unlike all other DISKIO routines, we never
+;       apply a default of IOP00n.DAT on your behalf.
+;     ----------
+;
+         .entry          d_parse,^m<r2,r3,r4,r5,r6,r7>
+         cmpw    0(ap),#6               ;require either 4 or 6 args.
+         beql    goodarg
+        cmpw     0(ap),#4
+         beql    goodarg
+         brw     badarg
+goodarg:                               
+         clrl    r0              ;specify raw open for good measure
+         movzwl          @4(ap),r7
+         jsb     setup_lun
+        clrb    fab$b_dns(r2)           ;skip our usual IOP00n.DAT default
+        clrl    fab$l_dna(r2)
+         moval   @12(ap),r0      ;get our default name ptr
+	 beql	 pname           ;if none given skip it.
+         jsb     filename
+        movb    fab$b_fns(r2),fab$b_dns(r2)
+        movl    fab$l_fna(r2),fab$l_dna(r2)
+pname:           
+         moval   @8(ap),r0       ;get our filespec ptr
+         jsb     filename
+;       The following commented line shows what to do to change
+;       the current handling of concealed logical device names and
+;       passwords in DECNET node specifications.
+;         $nam_store     nam=nam_off(r6),nop=<synchk,pwd>
+         $nam_store     nam=nam_off(r6),nop=<noconceal,synchk>
+        $parse  fab=(r2)
+         blbs    r0,goodparse
+         brw     opnerret        ;on error we must release the storage
+goodparse:
+         moval   @nam$l_rsa+nam_off(r6),r1       ;r1 is source addr
+         movzbl          nam$b_rsl+nam_off(r6),r2        ;r2 is source len
+         bnequ   gotit                           ;if rsl = 0 use esa & esl
+         moval   @nam$l_esa+nam_off(r6),r1
+         movzbl          nam$b_esl+nam_off(r6),r2
+gotit:
+         moval   @16(ap),r0                      ;r0 points to descriptor
+         pushl   r2                              ;save size
+         movc5   r2,(r1),#^a/ /,(r0),@4(r0)      ;copy filespec
+         tstw    r0                              ;did it fit?
+         beql    fits    
+         movl    #<<ss$_bufferovf & ^c^x7> ! 4>,r0       ;force severe status
+         brw     opnerret
+fits:
+         cmpw    0(ap),#6                        ;did we have 6 args?
+         blssu   parsend                         ;No. All done.
+         moval   @20(ap),r2                      ;r2 points into start array
+         beql    parsend                         ;if 0 quit
+         moval   @24(ap),r3                      ;r3 points into end array
+         beql    parsend                         ;if 0 quit
+         movzbl          #1,r4
+         movl    r4,(r2)+                        ;do full str first
+         movl    (sp)+,(r3)+                     ;as special case
+;
+         .list   meb
+         .irp    comp,<node,dev,dir,name,type,ver>
+         movl    r4,(r2)+                        ;'comp
+         movzbl          nam$b_'comp'+nam_off(r6),r5
+         addl2   r5,r4
+         subl3   #1,r4,(r3)+
+         .endr
+         .nlist          meb
+;
+parsend: movl    #ss$_normal,r0
+         brw     opnerret
+setup_lun:
+      pushl    r0 ; save "raw" indicator on stack
+      lunrange
+      tstl    lun_table[r7]
+      beqlu    newlun
+      pushal   errval2
+      calls    #1,g^errmes
+      movl     errval2,r0
+      ret
+newlun:
+      pushal   lun_table[r7]
+      pushal   memsiz
+      calls    #2,g^lib$get_vm
+      blbs     r0,okgetvm
+      movl     r0,errval
+      pushal   errval
+      calls    #1,g^errmes
+      movl     errval,r0
+      ret
+okgetvm:
+      movl     lun_table[r7],r6
+      movc5    #0,(sp),#0,#memory_size_per_unit,(r6)
+      movl     #dnm_c_bln,ddsc_off(r6)
+      moval    dnm_off(r6),ddsc_off+4(r6)
+      .list    meb
+      $fao_s   ctrstr=ctrstr,outbuf=ddsc_off(r6),p1=dnm1pt,p2=r7,p3=dnm2pt
+      .nlist   meb
+      blbs     r0,okfao
+      movl     r0,errval
+      pushal   errval
+      calls    #1,g^errmes
+      movl     errval,r0
+      jsb      cleanup_lun
+      ret
+okfao:
+        moval   fab_off(r6),r2  
+        movb    #fab$c_bid,fab$b_bid(r2)
+        movb    #fab$c_bln,fab$b_bln(r2)
+        $fab_store      fab=(r2),ctx=r7,fop=<cbt,tef>,rfm=<var>,-
+         nam=nam_off(r6),xab=xab_off(r6),org=<seq>,-
+         dna = dnm_off(r6),dns=#dnm_c_bln
+      movl     (sp)+,r1
+        $fab_store      fab=(r2),rat=r1
+      moval    rab_off(r6),r0
+      movb     #rab$c_bid,rab$b_bid(r0)
+      movb     #rab$c_bln,rab$b_bln(r0)
+      $rab_store  ctx=r7,fab=(r2),rop=<asy,rah,wbh>,rac=<seq>,mbf=#2
+      moval    nam_off(r6),r0
+      movb     #nam$c_bid,nam$b_bid(r0)
+      movb     #nam$c_bln,nam$b_bln(r0)
+      $nam_store  rsa=rss_off(r6),rss=#nam$c_maxrss,-
+         esa=ess_off(r6),ess=#nam$c_maxrss
+      moval    xab_off(r6),r0
+      movb     #xab$c_prolen,xab$b_bln(r0)
+      movb     #xab$c_pro,xab$b_cod(r0)
+      $xabpro_store  pro=<,,,>,nxt=xabh_off(r6)
+      moval    xabh_off(r6),r0                   ;initialize header xab
+      movb     #xab$c_fhclen,xab$b_bln(r0)
+      movb     #xab$c_fhc,xab$b_cod(r0)
+      $xabfhc_store  nxt=xabd_off(r6)
+      moval    xabd_off(r6),r0                   ;initialize date xab
+      movb     #xab$c_datlen,xab$b_bln(r0)
+      movb     #xab$c_dat,xab$b_cod(r0)
+      movzbl   #-1,eofmess_off(r6)
+      movl     #bits_to_clear,ropmask_off(r6)
+      rsb
+      
+cleanup_lun:
+      pushl    r0
+      pushal   lun_table[r7]
+      pushal      memsiz
+      calls       #2,g^lib$free_vm
+      clrl     lun_table[r7]
+      blbc        r0,nopop
+      popl     r0
+      rsb
+nopop:
+      movl     r0,errval
+      popl     r0
+      pushal   errval
+      calls    #1,g^errmes
+      movl     errval,r0
+      rsb
+      
+;     ++++++++++
+;
+;  IF(.NOT.D_OPEN(lun,'R' 'W' 'A' 'I' 'O' or 'U',filename [,nbuffs[,owner
+;      [,'F',recl[,prot[,seqonly]]]]]))STOP 'D_OPEN ERROR'
+;      The description that follows holds for the entire family
+;         of D_OPEN routines which includes D_OPEN_RAW & D_OPEN_FTN
+;         as well as D_OPEN itself.  The differences among the family
+;         members are described in their individual descriptions.
+;           where lun is the iopack lun (not related to FORTRAN luns at all),
+;                 'R'ead gives you read access to an existing file,
+;                 'W'rite gives you write acces to a new file,
+;                 'A'ppend gives you write access to an old file starting at
+;                    the current end of file - APPEND,
+;                 'I'nput gives you block i/o read access to an existing file,
+;                 'O'utput gives block i/o write access to a new file,
+;                 'U'nknown If file exists does 'A'; else it does a 'W'
+;                 filename is the filename in either CHARACTER form or
+;                 null terminated BYTE string,
+;                 and nbuffs is an optional buffer count which specifies
+;                 how many buffers to use in all i/o requests.  This has
+;                 a great deal to do with actual speed. 11 is a good choice.
+;                 There is an optional UIC parameter which says
+;                 to set the owner field if its a new file.
+;                 The next optional parameter sets the record type to fixed
+;                 if it is an 'F' and this file is being opened for write.
+;                 recl is the record length of the fixed length file.
+;                 The 8th parameter optionally specifies a protection mask.
+;                 The 9th parameter, if present, is a logical variable which
+;                 is set to .TRUE. iff the file will only be accessed
+;                 sequentially.  This permits considerable optimization
+;                 in file access if DECNET is involved.
+;           D_OPEN returns .TRUE. iff the open was successful.
+;           This routine may take a significant amount of time to
+;           complete part of which can be handled asynchronously.
+;            To verify that your OPEN has completed successfully you
+;           must call D_UNIT or the like.  You can be notified of
+;            the completion of the open by specifying an AST routine
+;            to D_ASTSET.
+;     ----------
+;     ++++++++++
+;
+;  IF(.NOT.D_OPEN_RAW(lun,'R' 'W' 'A' 'I' 'O' or 'U',filename [,nbuffs[,owner
+;      [,'F',recl[,prot[,seqonly]]]]]))STOP 'D_OPEN ERROR'
+;           Note that D_OPEN_RAW differs from the more commonly used D_OPEN
+;               only in that it creates a "raw" file having carriage-control
+;               attributes of NONE.
+;     __________
+      .ENTRY   D_OPEN_RAW,^M<R2,R3,R4,R5,R6,R7>
+;
+;     and now a note about register usage!
+;        In order to avoid difficulties with
+;        things like MOVC5 which use r0-r5,
+;        we will always store the pointer
+;        to the data structure for the current unit
+;        in r6, and the current unit number itself in r7.
+;
+         movzbl    #0,r0    ; set no rat
+         brb      dr_share ; and branch to common code
+      .ENTRY   R_OPEN,^M<R2,R3,R4,R5,R6,R7>
+         movzbl    #0,r0    ; set no rat
+         brb      dr_share ; and branch to common code
+;     ++++++++++
+;
+;  IF(.NOT.D_OPEN_FTN(lun,'R' 'W' 'A' 'I' 'O' or 'U',filename [,nbuffs[,owner
+;      [,'F',recl[,prot[,seqonly]]]]]))STOP 'D_OPEN_FTN ERROR'
+;           Note that D_OPEN_FTN differs from the more commonly used D_OPEN
+;               only in that it creates a file having carriage-control
+;               attributes of FORTRAN.
+;     ----------
+      .ENTRY   D_OPEN_FTN,^M<R2,R3,R4,R5,R6,R7>
+;
+;     and now a note about register usage!
+;        In order to avoid difficulties with
+;        things like MOVC5 which use r0-r5,
+;        we will always store the pointer
+;        to the data structure for the current unit
+;        in r6, and the current unit number itself in r7.
+;
+         movzbl   #fab$m_ftn,r0
+         brb      dr_share ; and branch to common code
+      .ENTRY   D_OPEN,^M<R2,R3,R4,R5,R6,R7>
+;
+;     and now a note about register usage!
+;        In order to avoid difficulties with
+;        things like MOVC5 which use r0-r5,
+;        we will always store the pointer
+;        to the data structure for the current unit
+;        in r6, and the current unit number itself in r7.
+;
+         movzbl    #fab$m_cr,r0
+dr_share:
+         movzwl          @4(ap),r7       ;get lun
+         jsb      setup_lun
+         cmpw    0(ap),#9        ;are there 9 args ?
+         beql    seqonly         ;yes. set sequential only bit
+         cmpw    0(ap),#8        ;are there 8 args ?
+         beql    prot            ;yes. set protection code
+         cmpw    0(ap),#7        ;are there 7 args ?
+         beql    fixed           ;yes, set fixed if it is 'F'
+         cmpw    0(ap),#5        ;are there 5 args ?
+         beql    owner           ;yes.set owner
+         cmpw    0(ap),#4        ;are there 4 args ?
+         beql    mbc             ;YES. They specified a buffer count.
+         cmpw    0(ap),#3        ;are there 3 args ?
+         bneq    badargjmp       ;NO. That was the only other legal choice!
+         jmp     name
+badargjmp:
+         jmp     badarg
+seqonly:
+         tstl    36(ap)          ;did they specify an address?
+         beql    prot            ;no. skip it.
+         blbc    @36(ap),prot    ;yes. did they want it on?
+         bisl2   #fab$m_sqo,fab$l_fop+fab_off(r6)       ;yes. set it.
+prot:    tstl    32(ap)          ;did they specify an address?
+         beql    fixed           ;no. skip it.
+         moval   xab_off(r6),r0
+         $xabpro_store      pro=@32(ap)
+fixed:   movl    24(ap),r0       ;did they specify an address?
+         beqlu   owner           ;no. skip it
+         cmpb    @4(r0),#^a/F/   ;is it 'F'
+         beql    grecl           ;yes. then get record length
+         cmpb    @4(r0),#^a/f/   ;try lower case
+         bneq    owner           ;no. default to variable
+grecl:   tstl    28(ap)          ;did they sepcify an address for recl?
+         bneq    setfix          ;no. since fixed length is desired, one must
+         jmp     badarg          ;specify a record length
+setfix:
+        $fab_store      fab=(r2),rfm=<fix>,mrs=@28(ap)
+owner:
+         tstl    20(ap)          ;did they specify an address?
+         beqlu   mbc             ;no. skip it
+      movl  @20(ap),xab$l_uic+xab_off(r6)
+mbc:                             ; user-specified buffer count 
+         tstl     16(ap)         ; did they omit address ?
+         beqlu    name           ; yes
+         tstl     @16(ap)        ; did they say 0 ?
+         beqlu    name           ; Yes. Ignore them
+                                        ; set init. alloc & extend size
+        $fab_store      fab=(r2),alq=@16(ap),deq=@16(ap)
+      moval    rab_off(r6),r0
+        $rab_store      mbc = #127      ;set mbc to a max of 127 blocks
+        cmpw    @16(ap),#127            ;did they ask for less?
+        bgequ   name                    ;Nope.
+        $rab_store      mbc = @16(ap)   ;Yup. Set it for them.
+name:
+         moval   @12(ap),r0       ; get addr of descriptor 
+         jsb   filename
+done:
+         moval   @8(ap),r0        ;
+         bneq    5$
+         brw     badopt           ;it is an error to omit this parameter.
+5$:      movb    @4(r0),r0       ;get the character in question
+         cmpb    r0,#^a/Z/       ;is it already uppercase ?
+         blequ    7$              ;Yes.
+         subb2   #^o40,r0        ;No. Convert it!
+7$:      cmpb    r0,#^a/U/       ;did they say unknown ?
+         beql     unknown        ;yes
+         cmpb     r0,#^a/A/      ;did they say append ?
+         beql     append         ;yes
+         cmpb     r0,#^a/O/      ;did they say block mode output ?
+         beql     output
+         cmpb     r0,#^a/W/      ;did they say '/W/rite'
+         beql    write           ;yes
+         cmpb     r0,#^a/I/      ;did they say block mode input ?
+         beql     input
+         cmpb     r0,#^a/R/  ;did they say '/R/ead'
+         beql     read           ;yes.
+badopt:  pushal   badopterr         ;unrecognized option.
+         calls    #1,errmes
+         movl     badopterr,r0
+         brw      opnerret
+      .PSECT    MACRO_PDAT PIC,USR,CON,REL,LCL,SHR,NOEXE,RD,NOWRT,NOVEC
+badopterr:  .long    rms$_ial
+      .PSECT    MACRO_CODE PIC,USR,CON,REL,LCL,SHR,EXE,RD,NOWRT,NOVEC
+unknown:
+         bisl2  #rab$m_eof,rab$l_rop+rab_off(r6)        ;select append mode
+        bisl2   #fab$m_cif,fab$l_fop(r2)
+         brb    write
+append:
+         bisl2  #rab$m_eof,rab$l_rop+rab_off(r6)        ;select append mode
+      bisl2       #fab$m_put!fab$m_get!fab$m_trn,fab$b_fac(r2)
+         brb      rdapp
+output:                  ; open a new file for writing w/ block i/o
+        bisl2   #fab$m_bio,fab$b_fac(r2)
+      movb     #1,blockio_off(r6)
+write:                   ; open a new file for writing 
+        bisl2   #fab$m_put!fab$m_get!fab$m_trn,fab$b_fac(r2)
+        $create fab=(r2)
+        jsb     upd_stat
+      blbs     r0,conn
+      brw      opnerret
+input:                   ; open an existing file to read w/ block i/o
+        bisl2   #fab$m_bio,fab$b_fac(r2)
+      movb     #1,blockio_off(r6)
+read:                    ; open an existing file to read 
+        bisl2   #fab$m_get,fab$b_fac(r2)
+rdapp:
+        $open   fab=(r2)
+        jsb     upd_stat
+         blbc  r0,opnerret   ; on error, return with error code.
+conn:                    ; in either case connect a record stream to it. 
+      tstl     ast_off(r6)
+      beql     10$
+      $connect    rab=rab_off(r6),err=@ast_off(r6),suc=@ast_off(r6)
+      blbs     r0,20$
+1$:                     ;begin cleanup on bad connect
+      pushl    r0       ;save status result
+      moval    @8(ap),r0
+      beql     5$       ;no mode given. Read by default
+      cmpb     @4(ap),#^a/W/   ;was this a write ?
+      beql     3$       ;YES. set delete on close option
+      cmpb     @4(ap),#^a/w/
+      bneq     5$       ;Definitely not a write
+3$:                     ;special case of write
+        bisl2   #fab$m_dlt,fab$l_fop(r2)        ;set delete on close
+5$:
+        $close  fab=(r2)
+      popl     r0
+      brb      opnerret
+10$:
+      $connect    rab=rab_off(r6)
+      blbc     r0,1$
+20$:
+      movl       r0,sts_off(r6)
+      blbc     r0,opnerret
+opnret:  ret
+badarg:
+         pushal   invarg
+         calls    #1,g^errmes
+         movl     invarg,r0
+opnerret:
+         jsb      cleanup_lun
+         ret
+      .PSECT    MACRO_PDAT PIC,USR,CON,REL,LCL,SHR,NOEXE,RD,NOWRT,NOVEC
+invarg:  .long    mth$_wronumarg
+      .PSECT    MACRO_CODE PIC,USR,CON,REL,LCL,SHR,EXE,RD,NOWRT,NOVEC
+filename:
+               ; filename is a simple subroutine to
+               ; store the filename specified in the fab.
+               ; On call, R0 must point to the filename descriptor
+               ; (or address of the BYTE buffer) and R2 must
+               ; point to the FAB.
+                ; Registers R1 and R3 get clobbered!
+               ; On return the FAB has been set with the appropriate filename.
+         movl    r0,r3
+         cmpb    2(r0),#14       ;is it a character string ?
+         beql    char            ;yes. Descriptors always have 14 in high word
+         movl    r0,r1           ;not CHAR, must be BYTE w/ null at end 
+cloop:
+         tstb    (r1)+           ;look for terminating null
+         bneq    cloop           ;not yet found
+         decl    r1              ;found null. point to last good char 
+         subl    r0,r1           ;get string length
+        $fab_store      fab=(r2),fns=r1,fna=(r3)
+         rsb
+char:
+         movzbl  (r3),r1       ;get string length
+         movl    4(r3),r0      ;get string address
+         decl    r0            ;r1 is 1 too big
+chloop:                          ;get rid of trailing blanks
+         addl2   r1,r0       ;get last char of string
+         cmpb    (r0),#^a/ /    ;is it a blank ?
+         bneq    cdon            ;no. stop looking for more blanks
+         subl2   r1,r0       ;fix up address for next time
+         sobgtr  r1,chloop     ;decrement length
+cdon:
+        $fab_store      fab=(r2),fns=r1,fna=@4(r3)
+         rsb
+;
+;
+;     ++++++++++
+;        CALL D_CLOS(lun)     ,where
+;        lun is the iopack lun (no relation to FORTRAN luns)
+;        This routine may take a significant amount of time
+;        to complete and has no provision for running asynchronously!
+;     ----------
+      .ENTRY   D_CLOS,^M<R2,R6,R7>
+      checkargs   1
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r            ;even though this is a file operation
+                                 ;you can't do it until record processing
+                                 ;completes
+        moval   fab_off(r6),r2
+        $close  fab=(r2)
+        jsb     upd_stat
+      jsb      cleanup_lun
+         ret
+;
+;
+upd_stat:
+         .if ne fab$l_ctx - rab$l_ctx
+         .error          1  ;offset to ctx doesn't match in fab & rab
+         .endc
+         .if ne fab$l_sts - rab$l_sts
+         .error  2  ;offset to sts doesn't match in fab & rab
+         .endc
+         .if ne fab$l_stv - rab$l_stv
+         .error  3  ;offset to stv doesn't match in fab & rab
+         .endc
+         moval    rab_off(r6),r0
+        bicl2   ropmask_off(r6),rab$l_rop(r0)
+         $rab_store  rac=<seq>
+         movl     rab$l_sts(r2),sts_off(r6)
+         movl     rab$l_stv(r2),stv_off(r6)
+      bitl     #nam$m_wildcard,nam$l_fnb+nam_off(r6)
+         beqlu    10$               ; no special stuff except on wildcards
+      cmpl     sts_off(r6),#rms$_nmf  ; fake it for nmf
+         beqlu    11$
+      cmpl     sts_off(r6),#rms$_fnf  ; same for fnf
+         bnequ    10$
+11$:     movl     #rms$_normal,sts_off(r6)
+10$:     
+      movzwl   rab$w_rsz+rab_off(r6),len_off(r6)
+         blbs    sts_off(r6),okay
+      bitl     #nam$m_wildcard,nam$l_fnb+nam_off(r6)   ;again check for wildcards
+      beqlu    13$   ;skip to normal message processing if not wild
+      cmpl     sts_off(r6),errval   ;if wild, only do message on first error
+      beqlu    okay ;if error has occurred before, don't write it out
+13$:     tstl     eofmess_off(r6)
+         beql     12$
+         cmpl    sts_off(r6),#rms$_eof
+         beql    okay
+12$:     
+         blbs    skipmes,okay
+         blbs    wrtmes,do_mes
+         cmpl    sts_off(r6),#rms$_rtb
+         beql    okay
+do_mes:
+      pushal      stv_off(r6)
+      pushal      sts_off(r6)
+      calls #2,g^errmes         ;dump error mess. unless EOF. 
+okay:
+      movzbl   #-1,eofmess_off(r6)  ;normally inhibit EOF messages
+      movl        rab$l_sts(r2),r0
+        rsb
+;
+;
+;
+wait_r:
+;       This routine makes R2 point to the RAB!!!!
+;       This may conflict with the normal usage of R2
+;       to point to the FAB - BEWARE!!!
+;        The following lines are because if you call $wait when
+;        the previous operation was not pending you then cause
+;        the previous status result to be lost
+;                 
+        moval    rab_off(r6),r2
+      cmpl     sts_off(r6),#rms$_pending
+      bnequ    nowait
+        $wait   rab=(r2)
+nowait:
+        jsb     upd_stat
+         rsb
+;     ++++++++++
+;        CALL D_LEN(lun)
+;        where lun is the iopack lun
+;        returns the number of bytes read in the last
+;        transfer.
+;        This routine may take a significant amount of time to complete
+;        as it waits for completion of the last io on the lun before
+;        returning.  It is recommended that you always call D_UNIT
+;        as well as D_LEN to ensure that the transfer was successful.
+;     ----------
+      .ENTRY   D_LEN,^M<R2,R6,R7>
+      checkargs   1
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+      movl     len_off(r6),r0
+         ret
+;
+;     ++++++++++
+;        IF(D_UNIT(lun))30,40,50
+;        where 30 is the label for a successful operation
+;        40 is the label for EOF, and
+;        50 is the label for error return.
+;        A call to D_UNIT or D_LEN synchronizes the io by waiting
+;        for it to complete before returning.
+;        You can also just check for io completion without having to
+;        wait if it isn't done by calling D_READY.
+;     ----------
+      .ENTRY   D_UNIT,^M<R2,R6,R7>
+      checkargs   1
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+      movl     sts_off(r6),r0
+         blbs    r0,minus
+         cmpl    #rms$_eof,r0
+         beqlu   zero
+         cmpl    #rms$_rtb,r0
+         beqlu   minus
+plus:
+         movf    #^f1.0,r0
+         ret
+zero:
+         movf    #^f0.0,r0
+         ret
+minus:
+         movf    #^f-1.0,r0
+         ret
+;
+;
+;
+;     ++++++++++
+;        I = D_STAT(lun)
+;        -1 indicates a successful operation,
+;         0 indicates EOF, and
+;         a positive value indicates an error code.
+;        A call to D_STAT synchronizes the io by waiting
+;        for it to complete before returning.
+;     ----------
+;
+      .ENTRY   D_STAT,^M<R2,R6,R7>
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+      movl     sts_off(r6),r0
+         blbs    r0,minuss
+         cmpl    #rms$_eof,r0
+         beqlu   zeros
+         cmpl    #rms$_rtb,r0
+         beqlu   minuss
+         movl    stv_off(r6),r0
+         ret
+zeros:
+         movl    #0,r0
+         ret
+minuss:
+         movl    #-1,r0
+         ret
+;
+;
+;     ++++++++++
+;        I = D_STAT_(lun)
+;        returns with a normal VMS code to indicate results.
+;        A call to D_STAT_ synchronizes the io by waiting
+;        for it to complete before returning.
+;        This entry should supercede the normal D_STAT when we go
+;        to version 4.0 !!!!!!
+;     ----------
+;
+      .ENTRY   D_STAT_,^M<R2,R6,R7>
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+      movl     sts_off(r6),r0
+;     In many cases the STV will not contain an error code so don't use it!
+      ret
+;
+;     ++++++++++
+;        CALL D_GET(lun,buffer,len)
+;        reads the next record from disk into BUFFER
+;        The maximum number of bytes in the transfer will
+;        be len.  Note that D_GET returns before the operation
+;        has completed.  You must call D_LEN or D_UNIT to ensure
+;        that the read has completed before attempting to examine
+;        the record.  In spite of its asynchronous nature, this routine
+;        may not return immediately if things like "window turns" are
+;        involved.
+;        You can arrange to be notified via an AST when io completes
+;        by calling D_ASTSET.
+;        Special warning for block i/o usage:  You should always
+;        specify a LEN value that is a multiple of 512 bytes.  In
+;        block i/o you will read exactly the number of bytes you request
+;        EXCEPT at the end of the file.  At the completion of a D_GET
+;        the file is positioned at the beginning of the next block so
+;        specifying a LEN that is not an exact number of blocks results
+;        in data being skipped.  Note that in block mode RMS does not
+;        interpret the data as records.  You get exactly what is in the
+;        file (with the exception of the file header info).
+;     ----------
+      .ENTRY   D_GET,^M<R2,R6,R7>
+      checkargs   3
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+        $rab_store      rab=(r2),ubf=@8(ap),usz=@12(ap)
+      tstb     blockio_off(r6)
+      bneq     30$                               ;Yes. Go to special code.
+      tstl      ast_off(r6)
+      beql      10$
+        $get    rab=(r2),err=@ast_off(r6),suc=@ast_off(r6)
+      brb       20$
+10$:
+        $get    rab=(r2)
+20$:
+      movl       r0,sts_off(r6)
+      bisl2     #get_bits_to_clear,ropmask_off(r6) ;allow UPD_STAT to clear these
+         ret
+30$:
+      tstl       ast_off(r6)
+      beql       40$
+        $read   rab=(r2),err=@ast_off(r6),suc=@ast_off(r6)
+      brb        20$
+40$:
+        $read   rab=(r2)
+      brb        20$
+
+;
+;        map into COMMON/IO_ERR/
+;
+         .save
+         .psect IO_ERR,pic,ovr,rel,gbl,shr,noexe,rd,wrt,long
+wrtmes:  .long   1
+skipmes: .long   0
+         .restore
+;
+;     ++++++++++
+;        CALL D_PUT(lun,buffer,len)
+;        writes out the next record to iopack lun LUN
+;        using len bytes starting at buffer.
+;        This routine returns to the user before the io
+;        completes.  You must call D_LEN or D_UNIT to assure
+;        that the io is done before modifying the record in
+;        memory.  You can also be notified of the io completion
+;        via an AST if you have previously called D_ASTSET.
+;        In spite of the asynchronous nature of this routine a
+;        significant delay may still occur before control is
+;        returned to the user in cases where the file must be
+;        implicitly extended for example.
+;        Special warning for block i/o usage:  You should always
+;        specify a LEN value that is a multiple of 512 bytes except at
+;        the end of the file.
+;        At the completion of a D_PUT
+;        the file is positioned at the beginning of the next block so
+;        specifying a LEN that is not an exact number of blocks results
+;        in parts of the file not being written.  Note that in block i/o
+;        mode RMS doesn't add any carriage control information for you.
+;        The file ends up exactly as you wrote with the addition of the
+;        file header information.
+;     ----------
+      .ENTRY   D_PUT,^M<R2,R6,R7>
+      checkargs   3
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+        $rab_store      rab=(r2),rbf=@8(ap),rsz=@12(ap)
+      tstb     blockio_off(r6)
+      bneq     30$                               ;Yes. Go to special code.
+      tstl     ast_off(r6)
+      beql     10$
+        $put    rab=(r2),err=@ast_off(r6),suc=@ast_off(r6)
+      brb      20$
+10$:
+        $put    rab=(r2)
+20$:
+      movl       r0,sts_off(r6)
+         ret
+30$:
+      tstl    ast_off(r6)
+      beql    40$
+        $write  rab=(r2),err=@ast_off(r6),suc=@ast_off(r6)
+      brb     20$
+40$:
+        $write  rab=(r2)
+      brb     20$
+;
+;     ++++++++++
+;        CALL D_MARK(lun,addr)
+;           stores the address (RFA) of the current record 
+;           in addr. addr must be able to hold at least 6 bytes
+;        This routine always returns immediately unless previous
+;        io is still outstanding.
+;        This routine, and D_JUMP are the only 2 routines which cannot
+;        be called in block i/o mode (as specified via 'I' or 'O' in
+;        your D_OPEN call).
+;     ----------
+      .ENTRY   D_MARK,^M<R2,R6,R7>
+      checkargs   2
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+      tstb     blockio_off(r6)
+      beql     5$                               ;Nope. Go ahead!
+      movl     #rms$_fac,r0
+      ret
+5$:
+         movaw   @8(ap),r0
+        movl    rab$w_rfa(r2),(r0)+
+        movw    rab$w_rfa+4(r2),(r0)+
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;        CALL D_JUMP(lun,addr)
+;           moves the file position to the record whose 
+;           address was stored previously in addr by a call
+;           to D_MARK.
+;        Control normally returns to the user immediately following
+;        a call to this routine unless something untoward like a
+;        "window turn" is involved.  If you want to be notified when
+;        the io has completed you can call D_ASTSET at some point
+;        before calling this routine.
+;        This routine, and D_MARK are the only 2 routines which cannot
+;        be called in block i/o mode (as specified via 'I' or 'O' in
+;        your D_OPEN call).
+;     ----------
+      .ENTRY   D_JUMP,^M<R2,R6,R7>
+      checkargs   2
+         movzwl  @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+      tstb     blockio_off(r6)
+      beql     5$                               ;Nope. Go ahead!
+      movl     #rms$_fac,r0
+      ret
+5$:
+        $rab_store      rab=(r2),rac=<rfa>      ;this will be reset in upd_stat
+         movaw   @8(ap),r0
+        movl    (r0)+,rab$w_rfa(r2)
+        movw    (r0)+,rab$w_rfa+4(r2)
+      clrl      eofmess_off(r6) ; enable printing of EOF error message
+      tstl     ast_off(r6)
+      beql     10$
+        $find   rab=(r2),err=@ast_off(r6),suc=@ast_off(r6)
+      brb      20$
+10$:
+        $find   rab=(r2)
+20$:
+      movl       r0,sts_off(r6)
+      ret
+;
+;
+;
+;     ++++++++++
+;        INTEGER*4 STATUS,D_INQUIRE
+;        STATUS = D_INQUIRE(lun,length,cc,blks,org[,cdt])
+;
+;        Where lun is the IOP logical unit number of the file.
+;        length - is the longest record in the file.
+;        cc - is the carriage control attribute
+;        blks - is the number of blocks allocated to this file
+;        org - is the file and record organization
+;        cdt - optionally returned with the creation time/date quadword
+;        This routine always returns immediately!
+;     ----------
+;
+         .entry          D_INQUIRE,^M<R2,r6,r7>
+         cmpw        0(ap),#6   ;did they specify cdt?
+         beql        10$
+         checkargs   5          ;if not they better have 5 args.
+10$:
+         movzwl          @4(ap),r7
+         checklun
+         movl    lun_table[r7],r6
+         tstl            8(ap)
+         beql            12$
+         movzwl          xab$w_lrl+xabh_off(r6),@8(ap)
+12$:
+         tstl            12(ap)
+         beql            14$
+         movzbl          xab$b_atr+xabh_off(r6),@12(ap)
+14$:
+         tstl            16(ap)
+         beql            16$
+         movl    xab$l_hbk+xabh_off(r6),@16(ap)
+16$:
+         tstl            20(ap)
+         beql            18$
+         movzbl          xab$b_rfo+xabh_off(r6),@20(ap)
+18$:
+         cmpw             0(ap),#6
+         bneq            20$
+         tstl            24(ap)   ;did they specify a nonzero address?
+         beql            20$      ;Nope. Skip it.
+         movq            xab$q_cdt+xabd_off(r6),@24(ap)
+20$:
+         movzbl          #1,r0
+         ret
+;
+;     ++++++++++
+;     EXTERNAL myast
+;     ...
+;     CALL D_ASTSET(lun,myast)     ,where
+;        lun is the iopack lun and myast is
+;        the address of an AST routine which
+;        is to be called upon completion of
+;        all D_GET, D_PUT, D_JUMP, or D_TRUNC
+;        operations.  The AST will be called without
+;        arguments.
+;        Once you have called this routine it remains in
+;        in effect until you call it again with a different
+;        AST address or you call D_ASTCLR.
+;     ----------
+      .ENTRY D_ASTSET,^M<R2,R6,R7>
+      checkargs   2
+      movzwl   @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      jsb      wait_r
+      movl     8(ap),ast_off(r6)  ;save AST address
+      ret
+;
+;     ++++++++++
+;     CALL D_ASTCLR(lun)   ,where lun is the iopack lun.
+;     This routine clears the previously specified AST
+;     address so that it will no longer be called.
+;     ----------
+      .ENTRY D_ASTCLR,^M<R2,R6,R7>
+      checkargs   1
+      movzwl   @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      jsb      wait_r
+      clrl     ast_off(r6)  ;clear AST address
+      ret
+;
+;     ++++++++++
+;     LOGICAL D_READY
+;     ...
+;     IF(D_READY(lun) THEN
+;        io has completed
+;     ELSE
+;        io still in progress
+;     END IF
+;     Note that this routine can be used whether an AST routine
+;     has been specified or not.
+;     The whole purpose of this routine is to return immediately
+;     and let you know whether the io has completed or not.
+;     ----------
+      .ENTRY D_READY,^M<R6,R7>
+      checkargs   1
+      movzwl   @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      movl     #rms$_normal,r0  ;assume completion.
+      tstl     rab$l_sts+rab_off(r6)  ;is it incomplete ?
+      bneq     endrdy  ;No. It is complete
+      movl     #<<rms$_pending & ^C^X7> ! 2>,r0  ;use pending message as error
+endrdy:
+      ret
+;
+;     ++++++++++
+;        CALL D_NAME(lun,filename,len)
+;
+;        where filename is a CHARACTER variable
+;        which will receive the full filespec of the
+;        currently open file,and LEN is the length
+;        of the filename
+;        This routine always returns immediately.
+;     ----------
+      .ENTRY   D_NAME,^M<R2,R3,R4,R5,R6,R7>
+      checkargs   3
+         movzwl  @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+comnam:
+         moval   @nam$l_rsa+nam_off(r6),r1       ;r1 is source addr
+         movzbl          nam$b_rsl+nam_off(r6),r2        ;r2 is source len
+         bnequ   gotit2                                  ;if rsl = 0 use esa & esl
+         moval   @nam$l_esa+nam_off(r6),r1
+         movzbl          nam$b_esl+nam_off(r6),r2
+gotit2:
+         moval    @8(ap),r0         ;r0 holds descriptor
+         movzwl   r2,@12(ap)
+         movc5    r2,(r1),#^a/ /,(r0),@4(r0)
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     call D_FID(lun,buff)
+;
+;        where lun is the usual iolun number
+;        and buff is the address of a 28 byte buffer. The first
+;        16 bytes are loaded with the device name,
+;        the next 6 bytes are the FID, and the last
+;        6 are the DID.  This routine is primarily
+;        useful if you want to send a message to
+;        the symbiont.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_FID,^M<R2,R3,R4,R5,R6,R7>
+      checkargs   2
+         movzwl  @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      movc5    #nam$c_dvi,nam$t_dvi+nam_off(r6),#^a/ /,#16,@8(ap)
+      movc3    #6,nam$w_fid+nam_off(r6),(r3)
+      movc3    #6,nam$w_did+nam_off(r6),(r3)
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;        CALL D_RNAM(lun1,oldfile,lun2,newfile)
+;
+;        where oldfile & newfile are the old and new
+;        filespecs for the rename operation.
+;        Note that both lun1 & lun2 must not be open.
+;        This routine may take a significant amount of time
+;        before returning to the user.  It has no provisions
+;        for asynchronous operation.
+;     ----------
+      .ENTRY   D_RNAM,^M<R2,R3,R4,R5,R6,R7>
+      checkargs   4
+         movzwl   @4(ap),r7
+         clrl  r0    ; clear "raw" mode
+      jsb      setup_lun
+         moval    @8(ap),r0
+         jsb      filename
+         pushl    r6          ; save pointer to old lun structures
+         pushl    r7
+         movzwl   @12(ap),r7
+         clrl  r0    ; clear "raw" mode
+      jsb      setup_lun
+         moval    @16(ap),r0
+         jsb      filename
+         popl     r3    ; r3 is pointer to oldfab
+         popl     r2
+      $rename  oldfab=fab_off(r2),newfab=fab_off(r6)
+        pushl   r6
+        pushl   r2
+        movl    r2,r6
+        moval    fab_off(r6),r2
+        jsb     upd_stat
+        popl    r2
+        popl    r6
+      jsb      cleanup_lun
+      movl     r2,r6
+      movl     r3,r7
+      jsb      cleanup_lun
+         ret                  ; Return with status code.
+;
+;     ++++++++++
+;        I = D_ERAS(IOLUN,FILENAME),where
+;           IOLUN is a currently closed IOLUN, &
+;           FILENAME is the name of a file to be deleted.
+;           Exceptionally, we do allow wildcards in FILENAME.
+;           Note that if wildcards are used, D_ERAS will attempt to
+;           delete all files matched even if it doesn't have privilege
+;           enough to delete them all.  In this case it will return
+;           the appropriate error on completion though.
+;        This routine may take a significant amount of time before
+;        returning to the user.  It has no provisions for
+;        asynchronous operation.
+;     ----------
+      .ENTRY   D_ERAS,^M<R2,R3,R4,R5,R6,R7>
+      checkargs   2
+         movl     #rms$_normal,errval  ;set up for success
+         movzwl   @4(ap),r7
+         clrl  r0    ; clear "raw" mode
+      jsb   setup_lun
+         moval    @8(ap),r0
+         jsb      filename
+        $parse  fab=(r2)
+        jsb     upd_stat
+         blbs     r0,edloop
+         jmp      eret
+edloop:
+        $search fab=(r2)
+        jsb     upd_stat
+         cmpl     r0,#rms$_nmf      ; have we exhausted wild-card processing ?
+         bnequ    10$
+         jmp      edone
+10$:
+         blbs     r0,20$
+         jmp      eret
+20$:
+      bisl2    #fab$m_nam,fab$l_fop+fab_off(r6) ; specify name block 
+        $erase  fab=(r2)
+        jsb     upd_stat
+        bicl2   #fab$m_nam,fab$l_fop(r2)
+      bitl     #nam$m_wildcard,nam$l_fnb+nam_off(r6)
+         beqlu    eret
+         blbs     r0,edloop
+         movl     r0,errval
+         jmp      edloop
+edone:
+         movl     errval,r0
+eret:
+         jsb      cleanup_lun
+         ret
+;
+;     ++++++++++
+;     D_SET_WILD called as
+;     CALL IFERR(D_SET_WILD(lun,name)), where
+;        LUN is the usual IOLUN, and
+;        NAME is the filespec which may include wildcards!
+;     This routine is synchronous and may take a significant
+;     amount of time to complete (but not likely)!
+;     ----------
+;
+      .ENTRY   D_SET_WILD,^M<R2,R3,R4,R5,R6,R7>
+      checkargs   2
+         movl     #rms$_normal,errval  ;set up for success
+         movzwl   @4(ap),r7
+         clrl  r0    ; clear "raw" mode
+      jsb   setup_lun
+         moval    @8(ap),r0
+         jsb      filename
+        $parse  fab=(r2)
+        jsb     upd_stat
+         blbs     r0,10$
+         jmp      eret
+10$:
+      ret
+;     ++++++++++
+;     D_EXPAND_WILD called as
+;     CALL IFERR(D_EXPAND_WILD(lun,name,len)), where
+;        LUN is the usual IOLUN,
+;        NAME is a character string which is returned with the
+;        resulting wildcard expansion string, and
+;        LEN is returned with the length of the string
+;        returned in NAME.
+;     To fully process a wildcard spec D_SET_WILD is called once.
+;     Then D_EXPAND_WILD is called repeatedly until it returns
+;     with a result of RMS$_NMF, and finally, D_END_WILD is called.
+;     This routine may take a significant amount of time to complete.
+;     There is no way to run it asynchronously!
+;     ----------
+;
+      .ENTRY   D_EXPAND_WILD,^M<R2,R3,R4,R5,R6,R7>
+      checkargs   3
+         movzwl  @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+        moval    fab_off(r6),r2
+        $search fab=(r2)
+        jsb     upd_stat
+      blbs        r0,10$
+      ret
+10$:  jmp         comnam
+;     ++++++++++
+;     D_END_WILD called as
+;     CALL IFERR(D_END_WILD(lun)), where
+;        LUN is the usual IOLUN.
+;     There must be one D_END_WILD call for every D_SET_WILD call.
+;     ----------
+;
+      .ENTRY   D_END_WILD,^M<R2,R3,R4,R5,R6,R7>
+      checkargs   1
+      movzwl  @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      movzbl   #1,r0
+      jsb   cleanup_lun
+      ret
+;     ++++++++++
+;     D_EXTD, called as
+;     CALL IFERR(D_EXTD(lun,blocks)), where
+;        LUN is the usual IOLUN, and
+;        BLOCKS is the number of blocks by which
+;        to extend the file.
+;     This routine may take a significant amount of time before
+;     returning to the user.  It has no provisions for
+;     asynchronous operation.
+;     ----------
+      .ENTRY   D_EXTD,^M<R2,R6,R7>
+      checkargs   2
+      movzwl   @4(ap),r7
+      checklun
+      movl  lun_table[r7],r6
+      jsb   wait_r
+        moval   fab_off(r6),r2
+      $fab_store  fab=(r2),alq=@8(ap)
+        $extend fab=(r2)
+        jsb     upd_stat
+        bicl2   #fab$m_tef,fab$l_fop(r2)        ;turn off truncate at eof
+      ret
+;
+;     ++++++++++
+;     CALL D_DELT(lun)
+;     Specifies that if the file is submitted as a batch or print
+;     job that it should be deleted upon completion.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_DELT,^M<R6,R7>
+      checkargs   1
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      bisl2    #fab$m_dlt,fab$l_fop+fab_off(r6) ; specify delete on close
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_SBMT(lun)
+;     Specifies that the file should be submitted as a batch job
+;     when it is closed.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_SBMT,^M<R6,R7>
+      checkargs   1
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      bisl2    #fab$m_scf,fab$l_fop+fab_off(r6) ; specify submit on close
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_SPOOL(lun)
+;     Specifies that the file should be spooled to SYS$PRINT when
+;     it is closed.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_SPOOL,^M<R6,R7>
+      checkargs   1
+         movzwl          @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      bisl2    #fab$m_spl,fab$l_fop+fab_off(r6) ; specify spool on close
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_TMO(lun,seconds)   ,where
+;        lun is the usual iopack lun, and
+;        seconds is how many seconds to allow
+;        before timing out.  If this number of
+;        seconds expires before the io completes
+;        it will be aborted and an error returned.
+;     This option only affects the very next D_GET on the lun.
+;     This option only affects terminal devices.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_TMO,^M<R2,R6,R7>
+      checkargs   2
+         movzwl         @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      jsb      wait_r
+        bisl2   #rab$m_tmo,rab$l_rop(r2)        ; specify timeout
+      bicl2    #rab$m_tmo,ropmask_off(r6)
+        movb    @8(ap),rab$b_tmo(r2) ; set actual timeout interval
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_CCO(lun)
+;     This option specifies that any current control O in effect on the
+;     terminal connected to this lun should be cancelled before the next
+;     D_PUT operation takes place.
+;     This routine always returns imeediately.
+;     ----------
+      .ENTRY   D_CCO,^M<R2,R6,R7>
+      checkargs   1
+         movzwl   @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      jsb      wait_r
+        bisl2   #rab$m_cco,rab$l_rop(r2)        ;specify cancel ^O
+      bicl2    #rab$m_cco,ropmask_off(r6)
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_RNE(lun)
+;     This option specifies that the next D_GET operation for this lun,
+;     if it is a terminal, should be done as a "READ NO ECHO".
+;     Beware that this option is only vslid on the very next operation
+;     and must be re-enabled for each io operation.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_RNE,^M<R2,R6,R7>
+      checkargs   1
+         movzwl   @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      jsb      wait_r
+        bisl2   #rab$m_rne,rab$l_rop(r2)        ; specify read no echo
+      bicl2    #rab$m_rne,ropmask_off(r6)
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_CVT(lun)
+;     This option specifies that the next D_GET from this lun,
+;     PROVIDED IT IS A TERMINAL, will automatically convert
+;     lower case characters to upper case.  This option must
+;     be re-enabled before each io operation for which it is
+;     to have an effect.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_CVT,^M<R2,R6,R7>
+      checkargs   1
+         movzwl   @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      jsb      wait_r
+        bisl2   #rab$m_cvt,rab$l_rop(r2)  ;specify CUPPER on next read
+      bicl2    #rab$m_cvt,ropmask_off(r6)
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_PTA(lun)
+;     This option specifies that before the next D_GET operation on this lun,
+;     PROVIDED IT IS A TERMINAL, the type ahead buffer will be flushed.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_PTA,^M<R2,R6,R7>
+      checkargs   1
+         movzwl   @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      jsb      wait_r
+        bisl2   #rab$m_pta,rab$l_rop(r2)        ;specify purge type ahead
+      bicl2    #rab$m_pta,ropmask_off(r6)
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_PMT(lun,prompt_string)   ,where
+;        lun is the usual iopack lun, and
+;        prompt-string is a string descriptor.
+;     This call allows the user to specify a prompt_string to be
+;     issued as a prompt in conjunction with the next D_GET
+;     operation to the lun, PROVIDED IT IS A TERMINAL.
+;     This routine always returns immediately.
+;     ----------
+      .ENTRY   D_PMT,^M<R2,R3,R4,R5,R6,R7>
+      checkargs   2
+         movzwl   @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+      jsb      wait_r
+        bisl2   #rab$m_pmt,rab$l_rop(r2) ;specify prompt on next read
+      bicl2    #rab$m_pmt,ropmask_off(r6)
+         moval    @8(ap),r0                  ; R0 points to descriptor
+         movzbl   0(r0),r3
+        movb    0(r0),rab$b_psz(r2)     ;set prompt string size
+        moval   prm_off(r6),rab$l_pbf(r2)       ;set prompt address
+      movc5    r3,@4(r0),#^a/ /,#prm_c_bln,prm_off(r6)
+      movzbl   #1,r0
+         ret
+;
+;     ++++++++++
+;     CALL D_TRUNC(lun)
+;     This option specifies that the file should be truncated
+;     at the current point in the file.  Normally this is used
+;     with a file that is being written to, just before closing it.
+;     This routine returns before the truncation has actually
+;     been accomplished.  This occasionally may still involve a
+;     significant amount of time (see previous comments).
+;     You can arrange to be notified when the io actually completes
+;     by calling D_ASTSET at some point before calling D_TRUNC.
+;     ----------
+      .ENTRY   D_TRUNC,^M<R2,R6,R7>
+      checkargs   1
+         movzwl         @4(ap),r7
+      checklun
+      movl     lun_table[r7],r6
+         jsb     wait_r
+      tstl     ast_off(r6)
+      beql     10$
+        $truncate       rab=(r2),err=@ast_off(r6),suc=@ast_off(r6)
+      brb      20$
+10$:
+        $truncate       rab=(r2)
+20$:
+      movl       r0,sts_off(r6)
+         ret
+         .end

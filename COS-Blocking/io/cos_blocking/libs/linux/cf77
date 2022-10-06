@@ -1,0 +1,16 @@
+#! /bin/csh -f
+#
+# set 'libdir' to the path where you put libcraylib.a
+set libdir = .
+#
+# standardcpp is the name of the GNU standard C++ library for your
+#   installation - you may need to change this
+# the standard library is usually in /usr/lib and will have a name like
+#   libstdc++.so or something similar
+# NOTE: if the final extension is not ".so" or ".a" (e.g. - there is a version
+#   number), you will need to create a symbolic link in the same directory as
+#   $libdir above, using something similar to the following:
+#   % ln -s /usr/lib/libstdc++.so.5 libstdc++.so
+set standardcpp = "stdc++"
+#
+f77 $1 -L$libdir -lcraylib -l$standardcpp

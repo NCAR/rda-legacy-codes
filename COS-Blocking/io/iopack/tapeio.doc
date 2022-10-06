@@ -1,0 +1,82 @@
+C     ++++++++++
+C     RAW TAPE I/O
+C     CALL T_LOGICAL(DEVICENAME,LDRV) to associate a
+C     particular DEVICENAME with a given logical drive number, LDRV.
+C     Normally default associations will be set up for you
+C     on a system-wide basis.
+C     ----------
+C     ++++++++++
+C     RAW TAPE I/O
+C     CALL WITH:
+C        CALL T_READ(LDRV,BUFFER,LENGTH)
+C        where
+C           LDRV is a logical magtape drive number. ie LOGICAL_MAGTAPE_nn
+C           where LOGICAL_MAGTAPE_00 is often MTA0:
+C           BUFFER is buffer address,
+C           LENGTH is number of bytes
+C
+C           Also, execution is asynchronous.
+C     ----------
+C     ++++++++++
+C     RAW TAPE I/O
+C     CALL WITH:
+C        CALL T_WRIT(LDRV,BUFFER,LENGTH)
+C        where
+C           LDRV is a logical magtape drive number.
+C           Generally LOGICAL_MAGTAPE_00 points to MTA0:
+C           BUFFER is buffer address,
+C           LENGTH is number of bytes
+C
+C           Also, execution is asynchronous.
+C     ----------
+C     ++++++++++
+C     CALL T_WAIT(LDRV,NSTATE,NBYTES) forces
+C     completion of IO on the unit.
+C
+C           LDRV is logical magtape drive number.
+C
+C     RETURNS NSTATE = 0      => SUCCESS
+C                      1      => EOF
+C                      2      => ERROR
+C                      3      => EOT
+C             NBYTES = NUMBER OF BYTES IN LAST TRANSFER
+C
+C     ----------
+C     ++++++++++
+C     RAW TAPE I/O
+C     CALL WITH:
+C        CALL T_WEOF(LDRV) writes an EOF
+C        where
+C           LDRV is a logical magtape drive number.
+C
+C           Also, execution is asynchronous.
+C     ----------
+C     ++++++++++
+C     RAW TAPE I/O
+C     CALL WITH:
+C        CALL T_RWND(LDRV) rewinds the tape
+C        where
+C           LDRV is a logical magtape drive number.
+C
+C           Also, execution is asynchronous.
+C     ----------
+C     ++++++++++
+C     RAW TAPE I/O
+C     CALL WITH:
+C        CALL T_SKPF(LDRV,NUMBER)  skips NUMBER files
+C        where
+C           LDRV is a logical magtape drive number.
+C           NUMBER is the number of files to skip
+C
+C           Also, execution is asynchronous.
+C     ----------
+C     ++++++++++
+C     RAW TAPE I/O
+C     CALL WITH:
+C        CALL T_SKPR(LDRV,NUMBER) skips NUMBER records
+C        where
+C           LDRV is a logical magtape drive number.
+C           NUMBER is the number of files to skip
+C
+C           Also, execution is asynchronous.
+C     ----------

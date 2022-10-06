@@ -1,0 +1,648 @@
+* PACKAGE BYTES          DESCRIPTION OF INDIVIDUAL USER ENTRIES
+*                        GBYTES, SBYTES, GBYTE, SBYTE FOLLOWS
+*                        THIS PACKAGE DESCRIPTION.
+*
+* LATEST REVISION        JANUARY 1985
+*
+* PURPOSE                ON THE CRAY MACHINES, TO PACK/UNPACK BYTES
+*                        (FIXED-LENGTH GROUPS OF BITS, IN THE RANGE
+*                        OF 1 TO 64 BITS EACH) IN MEMORY.  BYTES
+*                        MAY CROSS WORD BOUNDARIES.
+*
+* SPECIAL CONDITIONS     SEE 'TIMING' REMARKS BELOW.
+*
+* I/O                    NONE
+*
+* PRECISION              SINGLE
+*
+* REQUIRED LIBRARY       NONE
+* FILES
+*
+* LANGUAGE               CRAY ASSEMBLY LANGUAGE
+*
+* HISTORY                THESE ROUTINES HAVE BEEN AVAILABLE ON NCAR'S
+*                        BATCH MACHINES SINCE THE EARLY 1970'S.
+*
+*                        THE PRESENT VERSION OF GBYTES AND GBYTE WAS
+*                        WRITTEN BY JAY W. CHALMERS OF NCAR'S HIGH
+*                        ALTITUDE OBSERVATORY IN JUNE 1984.
+*
+*                        THE PRESENT VERSION OF SBYTES AND SBYTE WAS
+*                        WRITTEN BY DAVE KITTS OF NCAR'S SCIENTIFIC
+*                        COMPUTING DIVISION IN MAY 1982.
+*
+* PORTABILITY            SPECIFIC TO CRAY MACHINES.
+*
+* TIMING                 GBYTES IS FASTER THAN SBYTES.  THE TIMING
+*                        FOR BOTH DEPENDS ON NBITS AND ITER.
+*
+*                        INITIAL TESTS INDICATE THAT THESE ROUTINES
+*                        ARE THE FASTEST PACKERS/UNPACKERS ON THE
+*                        CRAY MACHINES.  USERS SHOULD AVOID OVERLAP
+*                        OF INPUT ARRAY WITH OUTPUT ARRAY, AS THIS
+*                        CAN SLOW THE PERFORMANCE SIGNIFICANTLY.
+************************************************************************
+*
+* SUBROUTINE GBYTES (PACKED,UNPACKED,NOFF,NBITS,ISKIP,ITER)
+*
+* PURPOSE                TO UNPACK A SERIES OF BYTES INTO A TARGET
+*                        ARRAY.  EACH UNPACKED BYTE IS RIGHT-JUSTIFIED
+*                        IN ITS TARGET WORD, AND THE REMAINDER OF THE
+*                        WORD IS ZERO-FILLED.
+*
+* USAGE                  CALL GBYTES (PACKED,UNPACKED,NOFF,NBITS,NSKIP,
+*                                     ITER)
+*
+* ARGUMENTS
+* ON INPUT                PACKED
+*                           THE WORD OR ARRAY CONTAINING THE PACKED
+*                           BYTES.
+*
+*                         UNPACKED
+*                           THE ARRAY WHICH WILL CONTAIN THE UNPACKED
+*                           BYTES.
+*
+*                         NOFF
+*                           THE INITIAL NUMBER OF BITS TO SKIP, LEFT
+*                           TO RIGHT, IN 'PACKED' IN ORDER TO LOCATE
+*                           THE FIRST BYTE TO UNPACK.
+*
+*                         NBITS
+*                           THE NUMBER OF BITS IN EACH BYTE TO BE
+*                           UNPACKED.  MAXIMUM OF 64 BITS.
+*
+*                         ISKIP
+*                           THE NUMBER OF BITS TO SKIP BETWEEN EACH BYTE
+*                           IN 'PACKED' IN ORDER TO LOCATE THE NEXT BYTE
+*                           TO BE UNPACKED.
+*
+*                         ITER
+*                           THE NUMBER OF BYTES TO BE UNPACKED.
+*
+* ARGUMENTS
+* ON OUTPUT               UNPACKED
+*                           CONTAINS THE REQUESTED UNPACKED BYTES.
+************************************************************************
+*
+* SUBROUTINE SBYTES (PACKED,UNPACKED,NOFF,NBITS,ISKIP,ITER)
+*
+* PURPOSE                GIVEN AN ARRAY OF RIGHT-JUSTIFIED BYTES,
+*                        TO PACK THE SERIES OF BYTES INTO A TARGET
+*                        WORD OR ARRAY. IN THE TARGET AREA, BITS
+*                        SURROUNDING THE PACKED BYTES ARE UNCHANGED.
+*
+* USAGE                  CALL SBYTES (PACKED,UNPACKED,NOFF,NBITS,
+*                                     ISKIP,ITER)
+*
+* ARGUMENTS
+* ON INPUT               PACKED
+*                          THE WORD OR ARRAY WHICH WILL CONTAIN THE
+*                          PACKED INFORMATION.
+*
+*                        UNPACKED
+*                          THE ARRAY OF RIGHT-JUSTIFIED BYTES.
+*
+*                        NOFF
+*                          THE INITIAL NUMBER OF BITS TO SKIP, LEFT
+*                          TO RIGHT, IN 'PACKED' IN ORDER TO LOCATE
+*                          WHERE THE FIRST BYTE IS TO BE PACKED.
+*
+*                        NBITS
+*                          THE NUMBER OF BITS IN EACH BYTE TO BE PACKED.
+*                          MAXIMUM OF 64 BITS.
+*
+*                        ISKIP
+*                          THE NUMBER OF BITS TO REMAIN UNCHANGED
+*                          BETWEEN EACH BYTE PACKED INTO 'PACKED'.
+*
+*                        ITER
+*                          THE NUMBER OF BYTES TO PACKED.
+*
+* ON OUTPUT              PACKED
+*                          CONTAINS THE REQUESTED PACKED BYTES.
+************************************************************************
+*
+* SUBROUTINE GBYTE (PACKED,UNPACKED,NOFF,NBITS)
+*
+* PURPOSE                TO UNPACK A BYTE INTO A TARGET WORD.  THE
+*                        UNPACKED BYTE IS RIGHT-JUSTIFIED IN THE
+*                        TARGET WORD, AND THE REMAINDER OF THE
+*                        WORD IS ZERO-FILLED.
+*
+* USAGE                  CALL GBYTE(PACKED,UNPACKED,NOFF,NBITS)
+*
+* ARGUMENTS
+*
+* ON INPUT               PACKED
+*                          THE WORD OR ARRAY CONTAINING THE BYTE TO BE
+*                          UNPACKED.
+*
+*                        UNPACKED
+*                          THE WORD WHICH WILL CONTAIN THE UNPACKED
+*                          BYTE.
+*
+*                        NOFF
+*                          THE NUMBER OF BITS TO SKIP, LEFT TO RIGHT,
+*                          IN 'PACKED' IN ORDER TO LOCATE THE BYTE
+*                          TO BE UNPACKED.
+*
+*                        NBITS
+*                          NUMBER OF BITS IN THE BYTE TO BE UNPACKED.
+*                          MAXIMUM OF 64 BITS.
+*
+* ON OUTPUT              UNPACKED
+*                          CONTAINS THE REQUESTED UNPACKED BYTE.
+************************************************************************
+*
+* SUBROUTINE SBYTE (PACKED,UNPACKED,NOFF,NBITS)
+*
+* PURPOSE                GIVEN A BYTE, RIGHT-JUSTIFIED IN A WORD, TO
+*                        PACK THE BYTE INTO A TARGET WORD OR ARRAY.
+*                        BITS SURROUNDING THE BYTE IN THE TARGET
+*                        AREA ARE UNCHANGED.
+*
+* USAGE                  CALL SBYTE (PACKED,UNPACKED,NOFF,NBITS)
+*
+* ARGUMENTS
+* ON INPUT               PACKED
+*                          THE WORD OR ARRAY WHICH WILL CONTAIN THE
+*                          PACKED BYTE.  BYTE MAY CROSS WORD BOUNDARIES.
+*
+*                        UNPACKED
+*                          THE WORD CONTAINING THE RIGHT-JUSTIFIED BYTE
+*                          TO BE PACKED.
+*
+*                        NOFF
+*                          THE NUMBER OF BITS TO SKIP, LEFT TO RIGHT,
+*                          IN 'PACKED' IN ORDER TO LOCATE WHERE THE
+*                          BYTE IS TO BE PACKED.
+*
+*                        NBITS
+*                          THE NUMBER OF BITS IN THE BYTE TO BE PACKED.
+*                          MAXIMUM OF 64 BITS.
+*
+* ON OUTPUT              PACKED
+*                          WORD OR CONSECUTIVE WORDS CONTAINING THE
+*                          REQUESTED BYTE.
+************************************************************************
+	IDENT	GBYTES
+
+* Register usage:
+* a1 dest		s1 offset
+* a2 src index		s2 size
+* a3 skip		s3 skip
+* a4 loop cnt
+* a7 shift		s7 mask
+
+* b70 source origin	t70 loop origin offset
+* b71 del s		t71 mask
+* b72 dest origin	t72 scalar count
+* b73 del d		t73 size
+* b74 count		t74 true skip
+* b75 trace back
+* b76 size
+* b77 70
+
+* Case   I -- 'byte' aligned at top
+
+GV1	A0	A2+A6	a0 = @ src
+	V0	,A0,A5	v0 = src
+	S6	-S1
+	S5	<6
+	S1	S1+S3	s1 = new offset
+	S6	S5&S6
+	A7	S6	a7 = shift
+	V1	V0>A7	v1 = 'byte'
+	A0	A1
+	A5	B73	a5 = del d
+	,A0,A5	V1	store it
+
+* What to do next is about the same
+
+GV2	A7	A7-A3	a7 = shift - skip
+	A0	A4-1
+	S0	+A7
+	A4	A4-1	a4 = dec loop cnt
+	A1	A1+1	inc dest
+	JAZ	GVA	go set up for next loop
+	JSM	GV3	next bot in different word
+	JSZ	GV9	next is at bottom of word
+	J	GV5
+
+GV3	A6	S2	a6 = size
+	A0	A7+A6	a0 = shift + size
+	S6	S1-S2	s6 = offset to top
+	A2	A2+1	a2 = src + 1 for GV7
+	JAP	GV7	next top in same word
+
+GV4	A6	B77	next 'byte' in a different word
+	S7	S6,S7>A6	s7 = top index
+	S5	<6
+	A5	B71	a5 = del s
+	S0	S5&S6
+	S4	-S1
+	A2	S7	a2 = top index
+	S4	S5&S4	s4 = shift
+	A7	S4	a7 = shift
+	A0	A7
+	S7	S5&S1
+	A6	S7
+	A3	S2	a3 = size
+	JAZ	GV8	nxt shift == 0
+	A0	A6-A3
+	S7	T71
+	A3	S3	a3 = skip
+	A6	B70	a6 = source
+	JSZ	GV1
+	JAM	GV6
+
+* Case  II -- 'byte' contained in one word
+
+	A0	A2+A6	a0 = @ src
+	V0	,A0,A5	v0 = src
+GV5	S6	-S1
+	S5	<6
+	S6	S5&S6	s6 = shift
+	A7	S6	s7 = shift
+	V1	V0>A7	v1 = 'byte' justified
+	S1	S1+S3	s1 = new offset
+	V2	S7&V1	v2 = just 'byte'
+	A5	B73	a5 = del d
+	A0	A1
+	,A0,A5	V2	store it
+	J	GV2
+
+* Case III -- 'byte' split across two words
+
+GV6	A0	A2+A6	a0 = @ src
+	V0	,A0,A5	v0 = src
+	A2	A2+1	a2 = bump index
+GV7	S5	<6
+	S6	S5&S1	s6 = top shift
+	A7	S6
+	V1	V0<A7	v1 = lft end 'byte' justified
+	A6	B70
+	A0	A2+A6	a0 = @ src
+	V2	S7&V1	v2 = just lft end 'byte'
+	A5	B71	a5 = del s
+	V0	,A0,A5	v0 = src
+	S6	-S1
+	S5	<6
+	S6	S5&S6	s6 = shift
+	A7	S6
+	V1	V0>A7	v1 = rt end of'byte'
+	S1	S1+S3	s1 = new offset
+	V3	V2!V1	v2 = just 'byte'
+	A0	A1
+	A5	B73	a5 = del d
+	,A0,A5	V3	store it
+	J	GV2
+
+* Case  IV -- 'byte' aligned at bottom
+
+GV8	A6	B70
+	A0	A2+A6	a0 = @ src
+	V0	,A0,A5	v0 = src
+	S7	T71
+	A3	S3	a3 = shift
+GV9	V1	S7&V0	v1 = 'byte'
+	A0	A1
+	S1	S1+S3	s1 = new offset
+	A5	B73	a5 = del d
+	,A0,A5	V1	store it
+	A7	A7-A3	a7 = shift - skip
+	J	GV2
+
+* set up for the next vector loop
+
+GVA	A0	B74	get count
+	A7	ZS0	a7 = 64
+	S0	T72
+	JAP	GS1	go try scalar
+	A1	B72	a1 = new dest
+	A4	B73	a4 = del d
+	A2	A4*A7	a2 = del d * vl
+	A5	B71	a5 = del s
+	VL	A7	vl = 64
+	A6	B74	a6 = count
+	S7	+A5	s7 = del s
+	A6	A6+A7	bump count
+	A2	A2+A1	a2 = dest orig nxt loop
+	S7	S7<12	s7 = del s * 64 * vl
+	S1	T70	s1 = bot offset
+	S7	S1+S7	s7 = nxt loop offset
+	S6	S1-S2	s6 = top offset
+	B74	A6	b74 = nxt count
+	B72	A2	b72 = nxt dest
+	T70	S7	t70 = nxt bot offset
+	J	GV4
+
+GBYTES	ENTER	NP=6,MODE=BASELVL,PRELOAD=0
+	B75	A1	save the trace back
+	A1	A6
+	ARGADD	A4,5,ARGPTR=A1	a4 = @ skip
+	ARGADD	A5,4,ARGPTR=A1	a5 = @ size
+	ARGADD	A3,6,ARGPTR=A1	a3 = @ count
+	ARGADD	A6,3,ARGPTR=A1	a6 = @ offset
+	ARGADD	A2,1,ARGPTR=A1	a2 = @ source
+	ARGADD	A1,2,ARGPTR=A1	a1 = @ dest
+	S5	,A4	s5 = skip
+	S7	,A5	s7 = size
+	S3	,A3	s3 = cnt
+	S1	,A6	s1 = offset
+	S2	<6
+	A6	ZS0	a6 = 64
+	A4	6	a4 = 6
+	S4	0
+	A7	A4+A6	a7 = 70
+	S5	S5+S7	s5 = skip + size == true skip
+	A5	S7	a5 = size
+	B77	A7	b77 = 70
+	S6	-S5	s6 = - skip
+	T74	S5	t74 = skip
+	B76	A5	b76 = size
+	S6	S5!S6
+	S6	#S6
+	S6	S2&S6
+	A3	ZS6
+	S2	<64
+	S1	S1+S7	s1 = offset + size
+	S4	S4,S2<A5	s4 = size mask
+	A4	A4+A3	a4 = a shift
+	A3	A6-A3	a3 st. 2^a3 = gcd(skip,64)
+	S2	S3,S2>A4	s2 = count / tpl = loop cnt
+	S5	S5>A3	s5 = del s
+	A5	4	a5 = cnt threshold
+	A7	S2	a7 = loop cnt
+	A0	A7-A5
+	S6	S6,S2<A4
+	S2	-S2	s2 = -cnt
+	B70	A2	b70 = source
+	JAM	GS2	go patch up for scalar
+	T71	S4	t71 = mask
+	T73	S7	t73 = size
+	S7	+A6	s7 = 64
+	S6	S3-S6	s6 = scalar count
+	S7	S7>A3	s7 = terms per loop == del d
+	A7	S2	a7 = -cnt
+	A6	S5	a6 = del s
+	S4	<6
+	S4	#S2&S4	s4 = short vl - 1
+	A3	S7	a3 = del d
+	A4	S4	a4 = short vl - 1
+	B73	A3	b73 = del d
+	A4	A4+1	a4 = short vl
+	B71	A6	b71 = del s
+	A6	A6*A4	a6 = del s * vl
+	A3	A3*A4	a3 = del d * vl
+	A0	A4-A5
+	VL	A4	set vl
+	S4	T74	s4 = skip
+	S7	S3	s7 = full cnt
+	S5	+A6	s5 = del s * vl
+	JAP	G0	if too short, add to scalar
+	S7	+A3	s5 = del d * vl
+	A3	B73	restore a3
+	A5	ZS0	vl = 64
+	A6	B71	restore a6
+	A7	A7+A4
+	A6	A6*A5	a6 = del s * vl
+	A3	A3*A5	a3 = del d * vl
+	S6	S6+S7	s6 = scalar count
+	VL	A5	set vl
+	S7	S3	s7 = full cnt
+	S5	+A6	s5 = del s * vl
+	A4	A5	a4 = vl
+G0	S4	S4<24	   for mpy
+	S3	S3<24
+	S5	S5<6	as offset inc
+	S3	S4*FS3	s3 = skip * cnt
+	A7	A7+A4	a7 = vector count
+	T72	S6	t72 = scalar count
+	B74	A7	b74 = vector count
+	S2	T73	s2 = size
+	S6	S1-S2	s6 = top offset
+	S5	S1+S5	s5 = offset to bot for nxt loop
+	S3	S3+S1	s3 = last offset
+	A6	B77	a6 = 70
+	T70	S5	t70 = nxt offset
+	S3	S3>6	s3 = last index
+	S2	+A2	s2 = src
+	S5	S6,S5>A6	s5 = first index
+	S3	S2+S3	s3 = last src
+	A3	A1+A3	a3 = next dest
+	S4	+A1	s4 = dest
+	S5	S2+S5	s5 = first src
+	S2	S4+S7	s2 = last dest
+	B72	A3	b72 = dest orig for nxt loop
+	S2	S2-S5
+	S4	S3-S4
+	A4	B73	a4 = loop cnt
+	A0	-A7
+	S0	S2!S4
+	S3	T74	s3 = skip
+	A3	S3	a3 = skip
+	JSP	GS1A	so he won't scribble on himself ?
+	S2	T73	s2 = size
+	JAP	GV4
+	S0	T72
+
+GS1	A1	B75	a1 = trace back
+	S3	T72	s3 = cnt
+	JSZ	GDONE
+	A2	B70	a2 = source
+	S4	T71	s4 = mask
+	S1	T70	s1 = bot offset
+	J	GS3
+
+GS1A	B72	A1	b72 = dest
+	S4	T71	s4 = mask
+	S3	S7	s3 = cnt
+	A1	B75	a1 = trace back
+	J	GS3
+
+GS2	S5	<1
+	S0	S3-S5	s0 = cnt - 1
+	B72	A1	b72 = dest
+	A1	B75	a1 = trace back
+	JSM	GDONE
+
+GS3	A6	B77	a6 = 70
+	S7	S1,S7>A6	wd index
+	S6	<6	s6 = mask
+	A3	S3	a3 = cnt
+	A4	S7
+	A4	A2+A4	a4 = @ word
+	S6	S1&S6	s6 = shift
+	S3	-1,A4	s3 = top word
+	S2	0,A4	s2 = bot word
+	A7	B72	a7 = dest
+	A7	A7-1	a7 = dest - 1
+	S5	T74	s5 = skip
+	A5	S6
+GS4	A7	A7+1	a7 = dest
+	S1	S1+S5	s1 = new offset
+	A3	A3-1	a3 = dec count
+	S3	S3,S2<A5	wd + trash
+	S6	<6	s6 = shift mask
+	S7	S1,S7>A6	nxt wd offset
+	S3	S3&S4	s3 = the byte
+	,A7	S3	store it
+	S6	S1&S6	s6 = shift
+	A5	S6	a5 = shift
+	A4	S7	a4 = nxt wd offset
+	A4	A2+A4	a4 = nxt wd
+	A0	A3	a0 = cnt for tst
+	S3	-1,A4	s3 = top word
+	S2	0,A4	s2 = bot word
+	JAN	GS4	loop
+GDONE	EXIT	MODE=BASELVL
+
+GBYTE	ENTER	NP=4,MODE=BASELVL,PRELOAD=0,SHARED=GBYTES
+	ARGADD	A3,4,ARGPTR=A6	a3 = @ size
+	ARGADD	A5,3,ARGPTR=A6	a5 = @ offset
+	S5	0	s5 = 0
+	S4	<64	s4 = -1
+	S3	<6
+	S7	,A3	s7 = size
+	S6	,A5	s6 = offset
+	ARGADD	A4,1,ARGPTR=A6	a4 = @ source
+	A3	S7	a3 = size
+	S5	S5,S4<A3	s5 = size mask
+	S4	S6+S7	s4 = offset + size
+	S6	S6+S7	s6 = offset + size
+	S4	S4>6
+	A5	S4	a5 = index
+	A4	A4+A5	a4 = wd add
+	S6	S3&S6	s6 = shift
+	S1	-1,A4	s1 = top word
+	S2	0,A4	s2 = bot word
+	ARGADD	A4,2,ARGPTR=A6	a4 = @ dest
+	A5	S6	a5 = shift
+	S1	S1,S2<A5	position
+	S1	S1&S5	s1 = just the 'byte'
+	,A4	S1	store it
+	EXIT	MODE=BASELVL
+	END
+
+	 IDENT     SBYTE
+ARY	 =	   1		  ARRAY POINTER
+DST	 =	   2		  DESTINATION POINTER
+POS	 =	   3		  BIT POSITION POINTER
+SIZ	 =	   4		  SIZE POINTER
+OFST	 =	   5		  OFSET VALUE
+SHFT	 =	   6		  SHIFT VALUE
+H1	 CON	   A'CRAYLIB'	       Q8QST4 ARGUMENT 1
+H2	 CON	   A'BYTES'	       Q8QST4 ARGUMENT 2
+H3	 CON	   A'SBYTE'	       Q8QST4 ARGUMENT 3
+H4	 CON	   A'VERSION ',A'01'   Q8QST4 ARGUMENT 4
+SBYTE	 ENTER	   NP=4
+	 CALL	   Q8QST4,(H1,H2,H3,H4)
+	 ARGADD    A.POS,POS	  FETCH LOCATION OF BYTE POSITION
+	 ARGADD    A.DST,DST	  FETCH THE LOCATION SOURCE BYTE
+	 ARGADD    A.SIZ,SIZ	  FETCH LOCATION OF BYTE SIZE
+	 ARGADD    A.ARY,ARY	  FETCH LOCATION OF DESTINATION
+	 S1	   0,A.POS	  FETCH THE POSITION VALUE
+	 S2	   0,A.DST	  FETCH THE SOURCE BYTE RIGHT JUSTIFIED
+	 A.SIZ	   0,A.SIZ	  FETCH THE BYTE SIZE
+	 S4	   <6		  MAKE MASK FOR SHIFT COUNT
+	 S5	   <64
+	 S3	   S4&S1	  ISOLATE THE SHIFT COUNT
+	 S1	   S1>6 	  DIVIDE THE POSITION BY 64
+	 A.OFST    S1		  SET UP THE OFFSET
+	 A.SHFT    S3		  SET SHIFT COUNT
+	 A.ARY	   A.ARY+A.OFST   POINT TO ARRAY ELEMENT
+	 S6	   0,A.ARY	  FETCH DESTINATION WORD
+	 S7	   1,A.ARY	  FETCH SECOND DESTINATION WORD
+	 A.OFST    64		  SET UP BASE FOR ADDRESS CALCULATION
+	 A7	   A.OFST-A.SIZ   SET UP SHIFT COUNT TO LEFT JUST BYTE
+	 S5	   S5<A7	  LEFT JUSTIFY MASK
+	 S2	   S2<A7	  LEFT JUSTIFY BYTE
+	 A7	   A.OFST-A.SHFT  SET UP SHIFT COUNT TO POSITION BYTE
+	 S3	   0		  CLEAR MASK BUFFER
+	 S4	   0		  CLEAR BYTE BUFFER
+	 S3	   S3,S5<A7	  POSITION MASK
+	 S4	   S4,S2<A7	  POSITION BYTE
+	 S6	   S4!S6&S3	  SLIP IN UPPER PORTION OF BYTE
+	 S5	   S5<A7	  POSITION MASK IF NECESSARY
+	 S2	   S2<A7	  POSITION BYTE IF NECESSARY
+	 S7	   S2!S7&S5	  SLIP IN LOWER PORTION OF BYTE
+	 0,A.ARY   S6		  RESTORE THE FIRST AND SECOND WORD
+	 1,A.ARY   S7		  WITH THE BYTE ADDED
+	 EXIT	   NAME=SBYTE
+	 END
+************************************************************************
+	 IDENT     SBYTES
+ARY	 =	   1		  ARRAY POINTER
+DST	 =	   2		  DESTINATION POINTER
+POS	 =	   3		  BIT POSITION POINTER
+SIZ	 =	   4		  SIZE POINTER
+OFST	 =	   5		  OFSET VALUE
+SHFT	 =	   6		  SHIFT VALUE
+SKP	 =	   5		  SKIP ARGUMENT POSITION
+RPT	 =	   6		  REPEAT ARGUMENT POSITION
+H1	 CON	   A'CRAYLIB'	       Q8QST4 ARGUMENT 1
+H2	 CON	   A'BYTES'	       Q8QST4 ARGUMENT 2
+H3	 CON	   A'SBYTES'	       Q8QST4 ARGUMENT 3
+H4	 CON	   A'VERSION ',A'01'   Q8QST4 ARGUMENT 4
+TPOS     DEFT
+TSKP     DEFT
+TRPT     DEFT
+SBYTES	 ENTER	   NP=6,NT=3
+	 CALL	   Q8QST4,(H1,H2,H3,H4)
+	 ARGADD    A.SIZ,SIZ
+	 ARGADD    A.SKP,SKP
+	 ARGADD    A.POS,POS
+	 ARGADD    A.RPT,RPT
+	 ARGADD    A.ARY,ARY
+	 ARGADD    A.DST,DST
+	 A.SIZ	   0,A.SIZ	  FETCH SIZE OF BYTE
+	 S3	   0,A.SKP	  FETCH NUMBER OF BITS TO SKIP
+	 S1	   0,A.POS	  FETCH INITIAL POSITION
+	 S4	   0,A.RPT	  FETCH NUMBER OF TIMES TO REPEAT
+	 S5	   A.SIZ	  ISOLATE SIZE FOR SKIP CALCULATION
+	 S3	   S3+S5	  CALCULATE ACTUAL SKIP SIZE
+	 S0	   S4		  TRANSFER COUNT TO S0 FOR TESTING
+	 T.TSKP    S3		  STORE SKIP SIZE
+	 T.TPOS    S1		  STORE INITIAL POSITION
+	 T.TRPT    S4		  STORE REPETITION COUNT
+	 JSZ	   SBRET	  DON'T DO ANYTHING ON A ZERO COUNT
+SB100	 S4	   <6		  MAKE MASK FOR SHIFT COUNT
+	 S1	   T.TPOS	  FETCH THE POSITION VALUE
+	 S2	   0,A.DST	  FETCH THE SOURCE BYTE RIGHT JUSTIFIED
+	 S3	   S4&S1	  ISOLATE THE SHIFT COUNT
+	 S1	   S1>6 	  DIVIDE THE POSITION BY 64
+	 A.OFST    S1		  SET UP THE OFFSET
+	 A.SHFT    S3		  SET SHIFT COUNT
+	 A.OFST    A.ARY+A.OFST   POINT TO ARRAY ELEMENT
+	 A.POS	   64		  SET UP BASE FOR ADDRESS CALCULATION
+	 A7	   A.POS-A.SIZ	  SET UP SHIFT COUNT TO LEFT JUST BYTE
+	 S1	   T.TRPT	  FETCH REPEAT COUNT
+	 S3	   T.TPOS	  FETCH CURRENT POSITION
+	 S4	   T.TSKP	  FETCH SKIP COUNT
+	 S5	   1
+	 S1	   S1-S5	  COUNT A REPITION
+	 S6	   0,A.OFST	  FETCH DESTINATION WORD
+	 S7	   1,A.OFST	  FETCH SECOND DESTINATION WORD
+	 S3	   S3+S4	  INCREMENT POSITION
+	 S0	   S1		  SET UP LOOP TEST
+	 S5	   <64
+	 T.TPOS    S3		  SAVE CURRENT POSITION
+	 T.TRPT    S1		  SAVE REPITION COUNT
+	 S5	   S5<A7	  LEFT JUSTIFY MASK
+	 S2	   S2<A7	  LEFT JUSTIFY BYTE
+	 A7	   A.POS-A.SHFT   SET UP SHIFT COUNT TO POSITION BYTE
+	 S3	   0		  CLEAR MASK BUFFER
+	 S4	   0		  CLEAR BYTE BUFFER
+	 S3	   S3,S5<A7	  POSITION MASK
+	 S4	   S4,S2<A7	  POSITION BYTE
+	 S6	   S4!S6&S3	  SLIP IN UPPER PORTION OF BYTE
+	 S5	   S5<A7	  POSITION MASK IF NECESSARY
+	 S2	   S2<A7	  POSITION BYTE IF NECESSARY
+	 S7	   S2!S7&S5	  SLIP IN LOWER PORTION OF BYTE
+	 0,A.OFST  S6		  RESTORE THE FIRST AND SECOND WORD
+	 1,A.OFST  S7		  WITH THE BYTE ADDED
+	 A.DST	   A.DST+1	  INCREMENT THE DESTINATION
+	 JSN	   SB100	  LOOP FOR ALL BYTES
+SBRET	 EXIT	   NAME=SBYTES,NT=3
+	 END

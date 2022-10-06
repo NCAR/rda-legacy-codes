@@ -1,0 +1,325 @@
+         IDENT     BYTE1
+************************************************************************
+**
+*                  ________________
+*                  SUBROUTINE GBYTE
+*                  ________________
+*
+*   PURPOSE:  TO MOVE A BYTE OF INFORMATION, SIZE (1 THRU 64), INTO
+*        A WORD, RIGHT JUSTIFIED, ZERO FILLED.
+*
+*   ENTRY:  CALLED BY NAME FROM THE CALLING SEQUENCE:
+*
+*        CALL GBYTE(PACKED,UNPACKED,BIT,NBITS)
+*
+*        WHERE:
+*
+*             PACKED - THE WORD OR ARRAY OF WORDS CONTAINING
+*                      THE PACKED INFORMATION.
+*
+*           UNPACKED - THE WORD THE INFORMATION WILL BE PLACED IN.
+*
+*               BIT  - THE BEGINNING BIT IN PACKED WHERE THE
+*                      INFORMATION WILL BE FETCHED.
+*
+*             NBITS  - THE NUMBER OF BITS IN THE BYTE OF INFORMATION.
+*
+*   EXIT:  ON EXIT UNPACKED WILL CONTAIN A RIGHT JUSTIFIED,ZERO FILLED
+*          BYTE OF NBITS.
+*
+*   TIMING:  APPROXIMATELY 750 NSEC
+*
+*   WRITTEN BY:  DAVID KITTS
+*                26 APRIL 82
+*
+************************************************************************
+**
+*                  ________________
+*                  SUBROUTINE SBYTE
+*                  ________________
+*
+*   PURPOSE:  TO MOVE A BYTE OF INFORMATION, SIZE (1 THRU 64), INTO
+*        AN ARRAY OF WORDS STARTING AT A GIVEN POSITION FOR A GIVEN
+*        NUMBER BITS.
+*
+*   ENTRY:  CALLED BY NAME FROM THE CALLING SEQUENCE:
+*
+*        CALL SBYTE(PACKED,UNPACKED,BIT,NBITS)
+*
+*        WHERE:
+*
+*             PACKED - THE WORD OR ARRAY OF WORDS CONTAINING
+*                      THE PACKED INFORMATION.
+*
+*           UNPACKED - THE WORD THE INFORMATION WILL BE FETCHED FROM.
+*
+*               BIT  - THE BEGINNING BIT IN PACKED WHERE THE
+*                      INFORMATION WILL BE STORED.
+*
+*             NBITS  - THE NUMBER OF BITS IN THE BYTE OF INFORMATION.
+*
+*   EXIT:  ON EXIT PACKED WILL CONTAIN THE BYTE OF INFORMATION AT
+*          POSITION BIT, AND SIZE NBITS.
+*
+*   TIMING:  APPROXIMATELY 750 NSEC
+*
+*   WRITTEN BY:  DAVID KITTS
+*                26 APRIL 82
+*
+************************************************************************
+**
+*                  _________________
+*                  SUBROUTINE GBYTES
+*                  _________________
+*
+*   PURPOSE:  TO MOVE A SERIES OF BYTES, SIZE (1 THRU 64), INTO
+*        AN ARRAY OF WORDS, RIGHT JUSTIFIED, ZERO FILLED.
+*
+*   ENTRY:  CALLED BY NAME FROM THE CALLING SEQUENCE:
+*
+*        CALL GBYTES(PACKED,UNPACKED,BIT,NBITS,SKIP,ITER)
+*
+*        WHERE:
+*
+*             PACKED - THE WORD OR ARRAY OF WORDS CONTAINING
+*                      THE PACKED INFORMATION.
+*
+*           UNPACKED - THE ARRAY OF WORDS THE INFORMATION
+*                      WILL BE PLACED IN.
+*
+*               BIT  - THE BEGINNING BIT IN PACKED WHERE THE
+*                      INFORMATION WILL BE FETCHED.
+*
+*             NBITS  - THE NUMBER OF BITS IN THE BYTE OF INFORMATION.
+*
+*              SKIP  - THE NUMBER OF BITS SKIPPED EACH ITERATION,
+*                      THE SKIP IS COUNTED RIGHT JUSTIFIED FOR EACH BYTE
+*
+*              ITER  - THE NUMBER OF BYTES TO BE MOVED
+*
+*   EXIT:  ON EXIT UNPACKED WILL CONTAIN A RIGHT JUSTIFIED, ZERO FILLED
+*          BYTE OF NBITS.
+*
+*   TIMING:  APPROXIMATELY 512 NSEC PER BYTE (NOT INCLUDING START UP)
+*
+*   WRITTEN BY:  DAVID KITTS
+*                26 APRIL 82
+*
+************************************************************************
+**
+*                  _________________
+*                  SUBROUTINE SBYTES
+*                  _________________
+*
+*   PURPOSE:  TO MOVE A SERIES OF BYTES, SIZE (1 THRU 64), INTO
+*        AN ARRAY OF WORDS, STARTING AT A GIVEN BIT POSITION, OF
+*        GIVEN SIZE, SKIPPING A GIVEN NUMBER OF BITS, AND A GIVEN
+*        NUMBER OF BYTES.
+*
+*   ENTRY:  CALLED BY NAME FROM THE CALLING SEQUENCE:
+*
+*        CALL SBYTES(PACKED,UNPACKED,BIT,NBITS,SKIP,ITER)
+*
+*        WHERE:
+*
+*             PACKED - THE WORD OR ARRAY OF WORDS CONTAINING
+*                      THE PACKED INFORMATION.
+*
+*           UNPACKED - THE ARRAY OF WORDS THE INFORMATION
+*                      WILL BE FETCHED FROM.
+*
+*               BIT  - THE BEGINNING BIT IN PACKED WHERE THE
+*                      INFORMATION WILL BE FETCHED.
+*
+*             NBITS  - THE NUMBER OF BITS IN THE BYTE OF INFORMATION.
+*
+*              SKIP  - THE NUMBER OF BITS SKIPPED EACH ITERATION,
+*                      THE SKIP IS COUNTED RIGHT JUSTIFIED FOR EACH BYTE
+*
+*              ITER  - THE NUMBER OF BYTES TO BE MOVED
+*
+*   EXIT:  ON EXIT PACKED WILL CONTAIN THE OLD INFORMATION STRING OF
+*          BITS PLUS THE NEW BYTES OF INFORMATION.
+*
+*   TIMING:  APPROXIMATELY 700 NSEC PER BYTE (NOT INCLUDING START UP)
+*
+*   WRITTEN BY:  DAVID KITTS
+*                26 APRIL 82
+*
+************************************************************************
+ARY      =         1              ARRAY POINTER
+DST      =         2              DESTINATION POINTER
+POS      =         3              BIT POSITION POINTER
+SIZ      =         4              SIZE POINTER
+OFST     =         5              OFSET VALUE
+SHFT     =         6              SHIFT VALUE
+GBYTE    ENTER     NP=4
+         ARGADD    A.POS,POS      GET BIT POSITION POINTER
+         ARGADD    A.SIZ,SIZ      GET SIZ POINTER
+         ARGADD    A.ARY,ARY      FETCH ARRAY POINTER
+         ARGADD    A.DST,DST      GET DESTINATION POINTER
+         S1        0,A.POS        FETCH THE POSITION VALUE
+         S5        0,A.SIZ        FETCH BYTE SIZE
+         S4        <6             MAKE MASK FOR SHIFT COUNT
+         S6        0              CLEAR SHIFT ACCUMULATOR
+         S3        S4&S1          ISOLATE THE SHIFT COUNT
+         S1        S1>6           DIVIDE BY 64
+         A.OFST    S1             SET UP OFFSET
+         A.SHFT    S3             SET UP SHIFT COUNT
+         A.OFST    A.OFST+A.ARY   POINT TO WORD IN QUESTION
+         S3        0,A.OFST       FETCH WORD1
+         S4        1,A.OFST       FETCH WORD2
+         A.SIZ     S5             SET BYTE SIZE FOR SHIFT
+         S3        S3,S4<A.SHFT   LEFT JUSTIFY THE BYTE IN QUESTION
+         S6        S6,S3<A.SIZ    ISOLATE BYTE RIGHT JUSTIFIED
+         0,A.DST   S6             STORE THE BYTE
+         EXIT      NAME=GBYTE
+************************************************************************
+SBYTE    ENTER     NP=4
+         ARGADD    A.POS,POS      FETCH LOCATION OF BYTE POSITION
+         ARGADD    A.DST,DST      FETCH THE LOCATION SOURCE BYTE
+         ARGADD    A.SIZ,SIZ      FETCH LOCATION OF BYTE SIZE
+         ARGADD    A.ARY,ARY      FETCH LOCATION OF DESTINATION
+         S1        0,A.POS        FETCH THE POSITION VALUE
+         S2        0,A.DST        FETCH THE SOURCE BYTE RIGHT JUSTIFIED
+         A.SIZ     0,A.SIZ        FETCH THE BYTE SIZE
+         S4        <6             MAKE MASK FOR SHIFT COUNT
+         S5        <64
+         S3        S4&S1          ISOLATE THE SHIFT COUNT
+         S1        S1>6           DIVIDE THE POSITION BY 64
+         A.OFST    S1             SET UP THE OFFSET
+         A.SHFT    S3             SET SHIFT COUNT
+         A.ARY     A.ARY+A.OFST   POINT TO ARRAY ELEMENT
+         S6        0,A.ARY        FETCH DESTINATION WORD
+         S7        1,A.ARY        FETCH SECOND DESTINATION WORD
+         A.OFST    64             SET UP BASE FOR ADDRESS CALCULATION
+         A7        A.OFST-A.SIZ   SET UP SHIFT COUNT TO LEFT JUST BYTE
+         S5        S5<A7          LEFT JUSTIFY MASK
+         S2        S2<A7          LEFT JUSTIFY BYTE
+         A7        A.OFST-A.SHFT  SET UP SHIFT COUNT TO POSITION BYTE
+         S3        0              CLEAR MASK BUFFER
+         S4        0              CLEAR BYTE BUFFER
+         S3        S3,S5<A7       POSITION MASK
+         S4        S4,S2<A7       POSITION BYTE
+         S6        S4!S6&S3       SLIP IN UPPER PORTION OF BYTE
+         S5        S5<A7          POSITION MASK IF NECESSARY
+         S2        S2<A7          POSITION BYTE IF NECESSARY
+         S7        S2!S7&S5       SLIP IN LOWER PORTION OF BYTE
+         0,A.ARY   S6             RESTORE THE FIRST AND SECOND WORD
+         1,A.ARY   S7             WITH THE BYTE ADDED
+         EXIT      NAME=SBYTE
+         END
+         IDENT     BYTE2
+ARY      =         1              ARRAY POINTER
+DST      =         2              DESTINATION POINTER
+POS      =         3              BIT POSITION POINTER
+SIZ      =         4              SIZE POINTER
+OFST     =         5              OFSET VALUE
+SHFT     =         6              SHIFT VALUE
+SKP      =         5              SKIP ARGUMENT POSITION
+RPT      =         6              REPEAT ARGUMENT POSITION
+************************************************************************
+GBYTES   ENTER     NP=6,NT=3
+TPOS     TREG
+TSKP     TREG
+TRPT     TREG
+         ARGADD    A.SIZ,SIZ
+         ARGADD    A.SKP,SKP
+         ARGADD    A.POS,POS
+         ARGADD    A.RPT,RPT
+         ARGADD    A.ARY,ARY
+         ARGADD    A.DST,DST
+         S2        0,A.SIZ        FETCH SIZE OF BYTE
+         S3        0,A.SKP        FETCH NUMBER OF BITS TO SKIP
+         S1        0,A.POS        FETCH INITIAL POSITION
+         S4        0,A.RPT        FETCH NUMBER OF TIMES TO REPEAT
+         A.SIZ     S2             STORE SIZE OF BYTE
+         S3        S3+S2          CALCULATE ACTUAL SKIP
+         S0        S4             TRANSFER COUNT TO S0 FOR TESTING
+         T.TSKP    S3             STORE SKIP SIZE
+         T.TPOS    S1             STORE INITIAL POSITION
+         T.TRPT    S4             STORE REPETITION COUNT
+         JSZ       GBRET          DON'T DO ANYTHING ON A ZERO COUNT
+GB100    S4        <6             MAKE MASK FOR SHIFT COUNT
+         S1        T.TPOS         FETCH THE POSITION VALUE
+         S7        S4&S1          ISOLATE THE SHIFT COUNT
+         S1        S1>6           DIVIDE BY 64
+         A.OFST    S1             SET UP OFFSET
+         A.OFST    A.OFST+A.ARY   POINT TO WORD IN QUESTION
+         S3        0,A.OFST       FETCH WORD1
+         S4        1,A.OFST       FETCH WORD2
+         S1        T.TPOS
+         S2        T.TSKP
+         S6        S2+S1          FIND THE NEW POSITION
+         T.TPOS    S6             SAVE THE NEXT POSITION
+         S1        T.TRPT         FETCH REPEAT COUNT
+         S2        1
+         S1        S1-S2          COUNT A REPITION
+         A.SHFT    S7             SET UP SHIFT COUNT
+         S0        S1             SET UP LOOP TEST
+         T.TRPT    S1             SAVE REPITION COUNT
+         S3        S3,S4<A.SHFT   LEFT JUSTIFY THE BYTE IN QUESTION
+         S4        0              CLEAR SHIFT ACCUMULATOR
+         S4        S4,S3<A.SIZ    ISOLATE BYTE RIGHT JUSTIFIED
+         0,A.DST   S4             STORE THE BYTE
+         A.DST     A.DST+1        INCREMENT THE DESTINATION
+         JSN       GB100          LOOP FOR ALL BYTES
+GBRET    EXIT      NAME=GBYTES,NT=3
+************************************************************************
+SBYTES   ENTER     NP=6,NT=3
+         ARGADD    A.SIZ,SIZ
+         ARGADD    A.SKP,SKP
+         ARGADD    A.POS,POS
+         ARGADD    A.RPT,RPT
+         ARGADD    A.ARY,ARY
+         ARGADD    A.DST,DST
+         A.SIZ     0,A.SIZ        FETCH SIZE OF BYTE
+         S3        0,A.SKP        FETCH NUMBER OF BITS TO SKIP
+         S1        0,A.POS        FETCH INITIAL POSITION
+         S4        0,A.RPT        FETCH NUMBER OF TIMES TO REPEAT
+         S5        A.SIZ          ISOLATE SIZE FOR SKIP CALCULATION
+         S3        S3+S5          CALCULATE ACTUAL SKIP SIZE
+         S0        S4             TRANSFER COUNT TO S0 FOR TESTING
+         T.TSKP    S3             STORE SKIP SIZE
+         T.TPOS    S1             STORE INITIAL POSITION
+         T.TRPT    S4             STORE REPETITION COUNT
+         JSZ       SBRET          DON'T DO ANYTHING ON A ZERO COUNT
+SB100    S4        <6             MAKE MASK FOR SHIFT COUNT
+         S1        T.TPOS         FETCH THE POSITION VALUE
+         S2        0,A.DST        FETCH THE SOURCE BYTE RIGHT JUSTIFIED
+         S3        S4&S1          ISOLATE THE SHIFT COUNT
+         S1        S1>6           DIVIDE THE POSITION BY 64
+         A.OFST    S1             SET UP THE OFFSET
+         A.SHFT    S3             SET SHIFT COUNT
+         A.OFST    A.ARY+A.OFST   POINT TO ARRAY ELEMENT
+         A.POS     64             SET UP BASE FOR ADDRESS CALCULATION
+         A7        A.POS-A.SIZ    SET UP SHIFT COUNT TO LEFT JUST BYTE
+         S1        T.TRPT         FETCH REPEAT COUNT
+         S3        T.TPOS         FETCH CURRENT POSITION
+         S4        T.TSKP         FETCH SKIP COUNT
+         S5        1
+         S1        S1-S5          COUNT A REPITION
+         S6        0,A.OFST       FETCH DESTINATION WORD
+         S7        1,A.OFST       FETCH SECOND DESTINATION WORD
+         S3        S3+S4          INCREMENT POSITION
+         S0        S1             SET UP LOOP TEST
+         S5        <64
+         T.TPOS    S3             SAVE CURRENT POSITION
+         T.TRPT    S1             SAVE REPITION COUNT
+         S5        S5<A7          LEFT JUSTIFY MASK
+         S2        S2<A7          LEFT JUSTIFY BYTE
+         A7        A.POS-A.SHFT   SET UP SHIFT COUNT TO POSITION BYTE
+         S3        0              CLEAR MASK BUFFER
+         S4        0              CLEAR BYTE BUFFER
+         S3        S3,S5<A7       POSITION MASK
+         S4        S4,S2<A7       POSITION BYTE
+         S6        S4!S6&S3       SLIP IN UPPER PORTION OF BYTE
+         S5        S5<A7          POSITION MASK IF NECESSARY
+         S2        S2<A7          POSITION BYTE IF NECESSARY
+         S7        S2!S7&S5       SLIP IN LOWER PORTION OF BYTE
+         0,A.OFST  S6             RESTORE THE FIRST AND SECOND WORD
+         1,A.OFST  S7             WITH THE BYTE ADDED
+         A.DST     A.DST+1        INCREMENT THE DESTINATION
+         JSN       SB100          LOOP FOR ALL BYTES
+SBRET    EXIT      NAME=SBYTES,NT=3
+         END

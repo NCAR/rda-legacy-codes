@@ -1,0 +1,18 @@
+      SUBROUTINE SWAP4(IN,IO,NN)
+C
+C       IN -  input array of 8-bit bytes contained in NN 32-bit words
+C       IO - output array of 8-bit bytes contained in NN 32-bit words
+C       NN - number of 32-bit words (groups of 4 bytes each)
+C
+      LOGICAL*1   IN(1),IO(1),IH
+C     CHARACTER*1 IN(1),IO(1),IH
+      DO 10 I=1,NN,4
+      IH=IN(I)
+      IO(I)=IN(I+3)
+      IO(I+3)=IH
+      IH=IN(I+1)
+      IO(I+1)=IN(I+2)
+      IO(I+2)=IH
+  10  CONTINUE
+      RETURN
+      END

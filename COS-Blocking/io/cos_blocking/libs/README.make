@@ -1,0 +1,92 @@
+Using the Cray library to read and write COS-blocked files:
+
+  I. Making the library
+
+     % make -f Makefile.craylib
+
+ II. Word Size
+     SUN and SGI:
+     Programs are compiled so that integers are 64-bit integers.
+
+     LINUX:
+     Currently, there is no way to force the GNU compiler to compile with 64-bit
+     integers.  This means that you will have to either 1) explicitly declare
+     the integer buffers used in the subroutine calls as INTEGER*8, or 2) you
+     will have to dimension the 32-bit integer buffers twice the length that
+     would be required if the integers were 64-bit.
+     Example:
+        INTEGER*8 IBUFFER(1000)
+                          ^^^^
+        CALL RDTAPE(IUNIT,MODE,NTYPE,IBUFFER,1000)
+                                             ^^^^
+        - OR -
+        DIMENSION IBUFFER(2000)
+                          ^^^^
+        CALL RDTAPE(IUNIT,MODE,NTYPE,IBUFFER,1000)
+                                             ^^^^
+
+III. How to Compile Programs
+
+     % cf77 <filename>
+
+     The cf77 command will link your Fortran program with the Cray I/O
+     libraries.
+
+ IV. Opening and Closing COS-blocked Files
+     CALL CRAYOPEN(IUNIT,FILENAME,MODE,IST)
+     CALL CRAYCLOSE(IUNIT)
+
+     where:
+       IUNIT    = File unit number (passed by user)
+       FILENAME = Name of the file to open (passed by user)
+       MODE     = 'r' or 'R' to open for reading
+                  'w' or 'W' to open for writing
+                  (passed by user)
+       IST      = Status of the open (returned to user)
+                  0 = successful
+                  1 = failed
+
+     Note about implicit open:  For read and write operations, these routines
+       support implicit opens.  If your file is named 'fort.xx', you can call
+       RDTAPE or WRTAPE with IUNIT=xx without having to explicitly open the file
+       with a call to CRAYOPEN.
+
+     Note about implicit close:  For write operations, these routines support
+       implicit closes on the Sun only.  On the SGI, you need to call CRAYCLOSE
+       explicitly or the file buffer will not be flushed when the program
+       terminates.
+
+  V. Reading a COS-blocked File
+
+     CALL RDTAPE(IUNIT,MODE,NTYPE,IBUFFER,LENGTH)
+     CALL IOWAIT(IUNIT,IST,IWDS)
+
+     where:
+       IUNIT   = File unit number (passed by user)
+       MODE    = ignored
+       NTYPE   = ignored
+       IBUFFER = Location to hold the next record in the file (passed by user)
+       LENGTH  = Dimension of IBUFFER in 64-bit words (passed by user)
+       IST     = Status of the read (returned to user)
+                 0 = successful
+                 1 = EOF (end of file)
+                 2 = error
+                 3 = EOD (end of data)
+       IWDS    = Number of 64-bit words that were read (returned to user)
+
+ VI. Writing a COS-blocked File
+
+     CALL WRTAPE(IUNIT,MODE,NTYPE,IBUFFER,LENGTH)
+     CALL IOWAIT(IUNIT,IST,IWDS)
+
+     where:
+       IUNIT   = File unit number (passed by user)
+       MODE    = ignored
+       NTYPE   = ignored
+       IBUFFER = Location holding the record to write to the file (passed by
+                 user)
+       LENGTH  = Number of 64-bit words to write (passed by user)
+       IST     = Status of the write (returned to user)
+                 0 = successful
+                 2 = error
+       IWDS    = Number of 64-bit words that were written (returned to user)

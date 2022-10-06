@@ -1,0 +1,16 @@
+ Reading-file,rec,lth     1           1       16384  0.1638400E+05   rate=    4096.
+ Reading-file,rec,lth     1        1001       16384  0.1640038E+08   rate=  390095.
+ Reading-file,rec,lth     1        2001       16384  0.3278438E+08   rate=  390095.
+ Reading-file,rec,lth     1        3001       16384  0.4916838E+08   rate=  390095.
+ Reading-file,rec,lth     1        4001       16384  0.6555238E+08   rate=  390095.
+ Reading-file,rec,lth     1        5001       16384  0.8193638E+08   rate=  390095.
+ file,recs =    1      5022 status =    0 min,max,bytes  16384 16384  0.8228045E+08
+ Reading-file,rec,lth     2           1       16384  0.1638400E+05   rate=   16384.
+ Reading-file,rec,lth     2        1001       16384  0.1640038E+08   rate=  390095.
+ Reading-file,rec,lth     2        2001       16384  0.3278438E+08   rate=  390095.
+ Reading-file,rec,lth     2        3001       16384  0.4916838E+08   rate=  390095.
+ Reading-file,rec,lth     2        4001       16384  0.6555238E+08   rate=  390095.
+ Reading-file,rec,lth     2        5001       16384  0.8193638E+08   rate=  390095.
+ file,recs =    2      5195 status =    0 min,max,bytes   4096 16384  0.8510259E+08
+ file,recs =    3         0 status =    0 min,max,bytes  32700     0  0.0000000E+00
+ exit, total files,recs, bytes     3     10217  0.0000000E+00

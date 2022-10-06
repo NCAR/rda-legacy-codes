@@ -1,0 +1,36 @@
+# find terminal local to seventrack for mount requests
+#
+set fu = `who`
+set cnt = `echo $fu | wc`
+set nl = $cnt[2]
+set n = 0
+set msg = /tmp/7trkmsg$$
+while ($n < $nl)
+  if ($fu[$n] != "$USER") @ n = $n + 1
+  set ruser = $fu[$n]
+  @ n = $n + 1
+  set term = $fu[$n]
+#  if ($term == "console") goto start
+  @ n = $n + 4
+  if($fu[$n] == "(:0.0)") goto start
+  if($fu[$n] == "(seventrack:0.0)") goto start
+# if($fu[$n] == "(royal.scd.ucar.edu)") goto start
+end
+echo NO CONSOLE AVAILABLE on seventrack - exit
+exit
+#
+start:
+echo seventrack terminal messages will  be sent to $ruser on $term
+#
+#
+     echo " "
+     echo Test msg to console on 7 track  - at `date`
+     echo ___________________________________________ >! $msg
+     echo "                          " >> $msg
+     echo  Test msg to console on 7 track  -  at `date` >> $msg
+     cat $msg | write $ruser $term
+rm $msg
+echo JOB COMPLETE ------------------------------ >! $msg
+cat $msg | write $ruser $term
+cat $msg
+rm $msg

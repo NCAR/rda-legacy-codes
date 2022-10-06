@@ -1,0 +1,262 @@
+*                                                                       GBY00010
+*        ****  DOCUMENTATION  ****                                      GBY00020
+*    WRITTEN BY JORDAN HASTINGS AND DENNIS JOSEPH                       GBY00030
+*               NCAR, BOULDER, COLORADO                                 GBY00040
+*                                                                       GBY00050
+*  THE FOLLOWING ROUTINES ALLOW FORTRAN ACCESS TO BIT STRINGS (BYTES)   GBY00060
+*  OF ARBITRARY LENGTH AND POSITION, PERHAPS CROSSING WORD BOUNDARIES,  GBY00070
+*  IN THE MANNER SPECIFIED BELOW:                                       GBY00080
+*                                                                       GBY00090
+*     CALL GBYTE (PCKD,UNPK,INOFST,NBIT)                                GBY00100
+*     CALL GBYTES(PCKD,UNPK,INOFST,NBIT, NSKIP,ITER)                    GBY00110
+*                                                                       GBY00120
+*        PCKD:     THE FULLWORD IN MEMORY FROM WHICH UNPACKING IS TO    GBY00130
+*                  BEGIN; SUCCESSIVE FULLWORDS WILL BE FETCHED AS       GBY00140
+*                  REQUIRED.                                            GBY00150
+*        UNPK:     THE FULLWORD IN MEMORY INTO WHICH THE INITIAL BYTE   GBY00160
+*                  OF UNPACKED DATA IS TO BE STORED; SUBSEQUENT BYTES   GBY00170
+*                  WILL BE STORED INTO SUCCESSIVE FULLWORDS AS          GBY00180
+*                  REQUIRED.                                            GBY00190
+*        INOFST:   A FULLWORD INTEGER SPECIFYING THE INITAL OFFSET      GBY00200
+*                  IN BITS OF THE FIRST BYTE, COUNTED FROM THE          GBY00210
+*                  LEFTMOST BIT IN PCKD.                                GBY00220
+*        NBITS:    A FULLWORD INTEGER SPECIFYING THE NUMBER OF BITS     GBY00230
+*                  IN EACH BYTE TO BE UNPACKED.  LEGAL BYTE WIDTHS      GBY00240
+*                  ARE IN THE RANGE 1 - 32; BYTES OF WIDTH .LT. 32      GBY00250
+*                  WILL BE RIGHT JUSTIFIED IN THE LOW-ORDER POSITIONS   GBY00260
+*                  OF THE UNPK FULLWORDS, WITH HIGH-ORDER ZERO FILL.    GBY00270
+*        NSKIP:    A FULLWORD INTEGER SPECIFYING THE NUMBER OF BITS     GBY00280
+*                  TO SKIP BETWEEN SUCCESSIVE BYTES.  ALL NON-NEGATIVE  GBY00290
+*                  SKIP COUNTS ARE LEGAL.                               GBY00300
+*        ITER:     A FULLWORD INTEGER SPECIFYING THE TOTAL NUMBER OF    GBY00310
+*                  BYTES TO BE UNPACKED, AS CONTROLLED BY INOFST,       GBY00320
+*                  NBIT AND NSKIP ABOVE.   ALL NON-NEGATIVE ITERATION   GBY00330
+*                  COUNTS ARE LEGAL.                                    GBY00340
+*                                                                       GBY00350
+*            NOTES ...                                                  GBY00360
+*              1)  A MULTIPLE-BYTE ACCESS (GBYTES) WITH ITER=0 (BUT     GBY00370
+*                  NOT 1)  IS EXACTLY EQUIVALENT TO A SINGLE-BYTE       GBY00380
+*                  ACCESS (GBYTE).                                      GBY00390
+*              2)  AN ERROR DETECTED IN THE CALLING SEQUENCE OF         GBY00400
+*                  EITHER GBYTE OR GBYTES SUPPRESSES BYTE ACCESS,       GBY00410
+*                  AND SETS THE FIRST ELEMENT OF UNPK = X'FFFFFFFF'     GBY00420
+*                                                                       GBY00430
+GBYT     TITLE 'IBM S/360 VERSION OF NCAR CDC/6600 BIT MANIPULATION'    GBY00440
+*                                                                       GBY00450
+*        ****  REGISTER USAGE  ****                                     GBY00460
+ZERO     EQU   X'0'                CONSTANT ZERO                        GBY00470
+PCKD     EQU   X'1'                ADDR OF PACKED ARY ELEMENT           GBY00480
+UNPK     EQU   X'2'                ADDR OF UNPACKED ARY ELEMENT         GBY00490
+OFST     EQU   X'3'                INITIAL BIT OFFSET                   GBY00500
+NBIT     EQU   X'4'                BYTE LENGTH IN BITS (.LE.32)         GBY00510
+NSKP     EQU   X'5'                ITERATIVE BIT SKIP                   GBY00520
+ITER     EQU   X'6'                ITERATION COUNT (.GE.0)              GBY00530
+BITR     EQU   X'7'                BITS REMAINING IN HIWD               GBY00540
+BITS     EQU   X'8'                BITS TO SHIFT (OFST OR NSKP)         GBY00550
+WORK     EQU   X'9'                WORK REGISTER                        GBY00560
+HIWD     EQU   X'A'                HI-ORDER WORD (EVEN REGISTER)        GBY00570
+LOWD     EQU   X'B'                LO-ORDER WORD (ODD REGISTER)         GBY00580
+BYTE     EQU   X'C'                RESULTANT BYTE                       GBY00590
+*        EQU   X'D'                SAVE AREA ADDR (NOT MODIFIED)        GBY00600
+*        EQU   X'E'                RETURN ADDR (NOT MODIFIED)           GBY00610
+BASE     EQU   X'F'                BASE ADDR REGISTER                   GBY00620
+NBFW     EQU   4                   NUMBER OF BYTES/FULL WORD            GBY00630
+*                                                                       GBY00640
+*                                                                       GBY00650
+*        ****  CODE  ****                                               GBY00660
+*                                                                       GBY00670
+GBYTES   CSECT ,                   PRIME ENTRY POINT                    GBY00680
+         ENTRY GBYTE               ALTERNATE ENTRY POINT                GBY00690
+*                                                                       GBY00700
+         USING GBYTES,BASE         ENTRY PT ADR ESTB IN R15 BY CALLER   GBY00710
+         SAVE      (0,12)          SAVE CALLING PROG REGISTERS (MACRO)  GBY00720
+         LM    NSKP,ITER,4*NBFW(1) PICK UP NSKIP, ITER PARM ADDRESSES   GBY00730
+         L     NSKP,0(,NSKP)       PICK UP BIT SKIP COUNT               GBY00740
+         L     ITER,0(,ITER)       PICK UP ITERATION COUNT              GBY00750
+         B     INIT                JUMP INTO CODE PROPER                GBY00760
+*                                                                       GBY00770
+GBYTE    DS    0H                  FORCE HALFWD ALLIGNMENT              GBY00780
+         USING GBYTE,BASE          ALT ENTRY ADDR ESTB IN R15 BY CALLER GBY00790
+         SAVE      (0,12)          SAVE CALLING PROG REGISTERS (MACRO)  GBY00800
+         SR    ITER,ITER           MAKE ITERATION COUNT ZERO            GBY00810
+*                                                                       GBY00820
+INIT     BALR  BASE,0              RE-ESTABLISH ADDRESSABILITY          GBY00830
+         USING *,BASE                                                   GBY00840
+         LM    PCKD,NBIT,0(1)      PICK UP ARY AND PARAMETER ADDRESSES  GBY00850
+      L         LOWD,0(,OFST)       COMPUTE FIRST PCKD WORD AND OFFSET  GBY00860
+      LA        WORK,32                                                 GBY00870
+      SR        HIWD,HIWD                                               GBY00880
+      DR        HIWD,WORK                                               GBY00890
+      LR        OFST,HIWD        SET OFFSET TO REMAINDER                GBY00900
+      SLA       LOWD,2                                                  GBY00910
+      AR        PCKD,LOWD          INCR PCKD ADDRESS BY WHOLE WORDS     GBY00920
+         L     HIWD,0(,PCKD)       PICK UP FIRST WORD OF PACKED ARY     GBY00930
+         LH    BITR,=H'32'         AFTER HIWD FETCH FULL 32 BITS REMAIN GBY00940
+         L     NBIT,0(,NBIT)       PICK UP NO. OF BITS/BYTE TO UNPACK   GBY00950
+         SR    ZERO,ZERO           ZERO OUT REG 0                       GBY00960
+         LR    WORK,BITR           MAKE WORK=32                         GBY00970
+         CR    ITER,ZERO           TEST FOR ZERO ITERATION COUNT        GBY00980
+         BH    INIT1               IF NOT, CONTINUE WITH INITIALIZATION GBY00990
+INIT0    CR    OFST,BITR           ELSE, TEST INITIAL OFFSET IN RANGE   GBY01000
+         BNL   FAIL                      IF NOT .LT. 32, FAIL           GBY01010
+         LH    ITER,=H'1'          FORCE EXACTLY 1 ITERATION            GBY01020
+         B     INIT2                                                    GBY01030
+INIT1    AR    NSKP,NBIT           ADD NBIT TO NSKP FOR MULT ACCESS     GBY01040
+INIT2    LA    PCKD,NBFW(PCKD)     INCR PACKED ARY POINTER              GBY01050
+         L     LOWD,0(,PCKD)       PICK UP SECOND WD OF PACKED ARRAY    GBY01060
+         SR    WORK,NBIT           COMPLEMENT NBITS (MODULO 32)         GBY01070
+         CR    WORK,ZERO           TEST NBITS IN RANGE                  GBY01080
+         BL    FAIL                IF NOT,.LE.32, FAIL                  GBY01090
+         STH   WORK,STORE+4        ELSE USE TO SET UP BYTE SHIFT COUNT  GBY01100
+*                                    OF SRL (RX) INSTR IN STORE SEQ     GBY01110
+         LR    BITS,OFST           MAKE BITS TO SHIFT = INITIAL OFFSET  GBY01120
+         LR    WORK,BITR           MAKE WORK=32, AGAIN                  GBY01130
+*                                                                       GBY01140
+TEST     CR    BITS,BITR           COMPARE BITS TO SHIFT WITH REMAINING GBY01150
+         BL    SHIFT               IF BITS.LT.BITR, PROCEED WITH SHIFT  GBY01160
+         BH    SPLIT               IF BITS.GT.BITR, ITER OVER SPLIT WDS GBY01170
+*        BE    COPY                ELSE, IF BITS.EQ.BITR, RECOPY HIWD   GBY01180
+*                                                                       GBY01190
+COPY     L     HIWD,0(,PCKD)       RELOAD HIWD FROM MEM WITH PREV LOWD  GBY01200
+         LA    PCKD,NBFW(PCKD)     INCR PACKED ARY POINTER              GBY01210
+         L     LOWD,0(,PCKD)         AND PICK UP NEXT PACKED LOWD       GBY01220
+         LR    BITR,WORK             RESET BITR TO 32                   GBY01230
+         B     STORE               PROCEED WITH STORE OPERATIONS        GBY01240
+*                                                                       GBY01250
+SPLIT    STH   BITR,*+6            SET UP BITR AS SLDL SHIFT COUNT      GBY01260
+         SLDL  HIWD,*-*            SHIFT LEFT DOUBLE LOGICAL, HIWD/LOWD GBY01270
+         SR    BITS,BITR           DECR BITS TO SHIFT BY SHIFTED BITR   GBY01280
+         B     SPLIT1              BYPASS FAST FULLWORD SKIPS           GBY01290
+         LR    OFST,BITS           COPY BITS REMAINING TO SHIFT TO OFST GBY01300
+*                                  (DESTROYING INITAL OFFSET PARM)      GBY01310
+         SRA   OFST,5              DIVIDE BY 32 TO GET WORDS TO SHIFT   GBY01320
+*        CR    OFST,ZERO             SIMULTANEOUSLY SETTING COND CODE   GBY01330
+*                                  IF REMAINING SHIFT .LT. 1 WORD       GBY01340
+         BNH   SPLIT1              FETCH NEXT SEQUENTIAL LOWD IMMED     GBY01350
+         SLA   OFST,2              ELSE, MULTIPLY WDS BY 4 TO GET BYTES GBY01360
+         AR    PCKD,OFST           INCR PACKED ARRAY POINTER            GBY01370
+         L     HIWD,0(,PCKD)         AND LOAD NEW HIWD                  GBY01380
+         SLA   OFST,3              MULTIPY BYTES BY 8 TO GET BITS       GBY01390
+         SR    BITS,OFST             AND DECR BITS REMAINING TO SHIFT   GBY01400
+SPLIT1   LA    PCKD,NBFW(PCKD)     INCR PACKED ARY PTR                  GBY01410
+         L     LOWD,0(,PCKD)         AND PICK UP NEXT PACKED LOWD       GBY01420
+         LR    BITR,WORK             RESET BITR TO 32                   GBY01430
+         B     TEST                ITERATE AS NECESSARY                 GBY01440
+*                                                                       GBY01450
+SHIFT    STH   BITS,*+6            SET UP BITS AS SLDL SHIFT COUNT      GBY01460
+         SLDL  HIWD,*-*            SHIFT LEFT DOUBLE LOGICAL, HIWD/LOWD GBY01470
+         SR    BITR,BITS           DECR BITS REMAINING BY BITS SHIFTED  GBY01480
+*                                                                       GBY01490
+STORE    LR    BYTE,HIWD           COPY HIWD TO BYTE                    GBY01500
+         SRL   BYTE,*-*            SHIFT RIGHT(WITH HI-ORDER ZERO FILL) GBY01510
+*                                    *-* SHIFT COUNT SET UP AT INIT2    GBY01520
+STORE1   ST    BYTE,0(,UNPK)       FILL BYTE INTO UNPACKED ARY          GBY01530
+         LA    UNPK,NBFW(UNPK)       AND INCR UNPACKED ARY POINTER      GBY01540
+         LR    BITS,NSKP           RESTORE BITS = (NSKP+NBIT)           GBY01550
+         BCT   ITER,TEST           DECR ITER COUNT, CONTINUE TILL ZERO  GBY01560
+*                                                                       GBY01570
+*                                                                       GBY01580
+EXIT     RETURN    (0,12)          RESTORE CALLING PROG REGS (MACRO)    GBY01590
+*                                                                       GBY01600
+FAIL     LH    BYTE,=X'FFFF'       MAKE BYTE A FULL WD OF 1'S           GBY01610
+         ST    BYTE,0(,UNPK)         AND FILL INTO UNPACKED ARRAY       GBY01620
+         B     EXIT                                                     GBY01630
+*                                                                       GBY01640
+         LTORG                                                          GBY01650
+         END                                                            GBY01660
+SBYTES   CSECT ,                                                                
+*                                                                               
+* SBYTE/SBYTES - GENERAL BIT PACKING ROUTINES.                                  
+*        SEE NCAR - TN/93, JANUARY 1974.                                        
+*        D. JOSEPH           OCTOBER, 1981.                                     
+*                                                                               
+         ENTRY SBYTE                                                            
+         USING SBYTES,R15                                                       
+         SAVE                (0,12)                                             
+         STM   R13,R14,REG13      SAVE REGISTER 13 AND 14 LOCAL.                
+         LM    R11,R12,16(R1)     GET SKIP AND ITERATION COUNT.                 
+         L     R11,0(R11)                                                       
+         L     R12,0(R12)                                                       
+         B     START                                                            
+SBYTE    DS    0H                                                               
+         USING SBYTE,R15                                                        
+         SAVE                (0,12)                                             
+         STM   R13,R14,REG13      SAVE REGISTER 13 AND 14 LOCAL.                
+         SR    R12,R12            ZERO ITERATION COUNT.                         
+START    BALR  R15,R0             RE-ESTABLISH ADDRESSABILITY.                  
+         USING *,R15                                                            
+         LM    R7,R10,0(R1)       GET REMAINING ARG ADDRESSES.                  
+         LA    R1,1              SET CONSTANT ONE.                              
+         L     R10,0(R10)         GET BYTE SIZE.                                
+         LA    R0,1               MAKE MASK.                                    
+         SLL   R0,31                                                            
+         SR    R10,R1                                                           
+         STH   R10,MASK+2                                                       
+         AR    R10,R1                                                           
+         LA    R6,32              MAKE CONSTANT 32.                             
+         L     R14,COMP           LOAD COMPLEMENT MASK.                         
+MASK     SRA   R0,*-*                                                           
+         LR    R13,R0             SAVE MASK.                                    
+         SLL   R12,2              NUM OF ITERATIONS * FOUR.                     
+         AR    R12,R8             SET ITERATION LIMIT.                          
+         L     R4,0(R9)           APPLY INITIAL OFFSET.                         
+         LA    R1,96                                                            
+         CR    R4,R1              CHECK FOR LARGE OFFSET.                       
+         BL    NODIV                                                            
+         LR    R5,R4                                                            
+         SR    R4,R4                                                            
+         DR    R4,R6              USE DIVIDE FOR LARGE OFFSETS.                 
+         SLL   R5,2               CHANGE WORD COUNT TO BYTE COUNT.              
+         AR    R7,R5                                                            
+NODIV    EQU   *                                                                
+         LA    R5,4               LOAD CONSTANT FOUR.                           
+RELOAD   CR    R4,R6              FIND WORD AND OFFSET.                         
+         BL    ILOAD              START IF OFFSET < 32.                         
+         SR    R4,R6                                                            
+         AR    R7,R5                                                            
+         B     RELOAD                                                           
+ILOAD    L     R9,0(R7)        GET STORE WORD.                                  
+BEGIN    STH   R4,PMASK+2         POSITION MASK IN DOUBLE WORD.                 
+         SR    R1,R1                                                            
+PMASK    SRDL  R0,*-*                                                           
+         L     R3,0(R8)           LOAD BYTE FOR STORE.                          
+         LA    R2,64                                                            
+         SR    R2,R10             POSITION BYTE.                                
+         SR    R2,R4                                                            
+         STH   R2,SHIFTB+2                                                      
+         SR    R2,R2                                                            
+SHIFTB   SLDL  R2,*-*             SHIFT BYTE TO STORE.                          
+         NR    R2,R0              MASK ON CURRENT MASK.                         
+         XR    R0,R14             COMPLEMENT MASK.                              
+         NR    R9,R0              OPEN HOLE FOR BYTE.                           
+         OR    R9,R2              INSERT BYTE.                                  
+         AR    R4,R10             ADD BYTE SIZE.                                
+         CR    R4,R6                                                            
+         BNH   NOPART             BRANCH IF NO PARTIAL BYTE.                    
+         ST    R9,0(R7)        STORE CURRENT WORD.                              
+         SR    R4,R6                                                            
+         AR    R7,R5             ADD FOUR TO WORD ADDRESS.                      
+         L     R9,0(R7)        LOAD NEXT WORD.                                  
+         NR    R3,R1              ISOLATE PARTIAL BYTE.                         
+         XR    R1,R14             COMPLEMENT MASK.                              
+         NR    R9,R1              OPEN HOLE FOR PARTIAL BYTE.                   
+         OR    R9,R3              INSERT PARTIAL BYTE.                          
+NOPART   AR    R8,R5             COUNT BYTE.                                    
+         CR    R8,R12             CHECK IF DONE.                                
+         BNL   DONE                                                             
+         AR    R4,R11             ADD SKIP AMOUNT.                              
+         LR    R0,R13             RELOAD MASK                                   
+         CR    R4,R6                                                            
+         BL    BEGIN              BRANCH IF IN SAME WORD.                       
+         ST    R9,0(R7)           STORE CURRENT WORD.                           
+         B     RELOAD             GO TO GET NEW WORD.                           
+DONE     ST    R9,0(R7)        STORE LAST WORD.                                 
+         LM    R13,R14,REG13      RESTORE REGISTER 13 AND 14.                   
+         RETURN       (0,12)                                                    
+HMASK    DS    D                  ARE FOR CURRENT MASK.                         
+REG13    DS    F                                                                
+REG14    DS    F                                                                
+COMP     DC    X'FFFFFFFF'        COMPLEMENT MASK.                              
+         LTORG                                                                  
+         REGEQU                                                                 
+         END                                                                    

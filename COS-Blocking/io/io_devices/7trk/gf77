@@ -1,0 +1,4 @@
+#
+gathr $* > /tmp/ff$$.f
+f77 -Bstatic /tmp/ff$$.f
+rm /tmp/ff$$.f

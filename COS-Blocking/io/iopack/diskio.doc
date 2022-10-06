@@ -1,0 +1,418 @@
+;     ++++++++++
+;     CALL IFERR(D_PARSE(lun,fname,[dname],rname[,start,end]))
+;     calls the RMS parser to take the filespec fname,
+;     apply the default filespec dname (both of which
+;     can be either CHARACTER variables or null terminated byte arrays)
+;     and return in the CHARACTER variable rname the resultant
+;     full filespec.  Start and end are integer*4 arrays with
+;     7 elements each containing the starting and ending indexes
+;     into the following portions of the full filespec returned
+;     in rname:
+;     1   full filespec (note that end(1) is thus the end of the entire string)
+;     2   node name
+;     3   device name
+;     4   directory name
+;     5   file name  (not including type or version)
+;     6   file type
+;     7   file version number
+;     Note also that rname will be blank padded as needed.
+;     dname is an optional parameter which may be omitted.
+;     Missing components which do not receive RMS defaults
+;     (typically the node name) are indicated by an end value
+;     one less than their start value!
+;     In general, a missing filetype comes back as '.' while
+;     a missing version number comes back as ';'
+;       Note that we DO translate concealed logical device names
+;       and we do convert
+;       the password in a DECNET node spec to the string "PASSWORD".
+;       Both of these behaviors can easily be changed by a slight
+;       modification in the code (see commented out line).
+;       Note also that, unlike all other DISKIO routines, we never
+;       apply a default of IOP00n.DAT on your behalf.
+;     ----------
+;     ++++++++++
+;
+;  IF(.NOT.D_OPEN(lun,'R' 'W' 'A' 'I' 'O' or 'U',filename [,nbuffs[,owner
+;      [,'F',recl[,prot[,seqonly]]]]]))STOP 'D_OPEN ERROR'
+;      The description that follows holds for the entire family
+;         of D_OPEN routines which includes D_OPEN_RAW & D_OPEN_FTN
+;         as well as D_OPEN itself.  The differences among the family
+;         members are described in their individual descriptions.
+;           where lun is the iopack lun (not related to FORTRAN luns at all),
+;                 'R'ead gives you read access to an existing file,
+;                 'W'rite gives you write acces to a new file,
+;                 'A'ppend gives you write access to an old file starting at
+;                    the current end of file - APPEND,
+;                 'I'nput gives you block i/o read access to an existing file,
+;                 'O'utput gives block i/o write access to a new file,
+;                 'U'nknown If file exists does 'A'; else it does a 'W'
+;                 filename is the filename in either CHARACTER form or
+;                 null terminated BYTE string,
+;                 and nbuffs is an optional buffer count which specifies
+;                 how many buffers to use in all i/o requests.  This has
+;                 a great deal to do with actual speed. 11 is a good choice.
+;                 There is an optional UIC parameter which says
+;                 to set the owner field if its a new file.
+;                 The next optional parameter sets the record type to fixed
+;                 if it is an 'F' and this file is being opened for write.
+;                 recl is the record length of the fixed length file.
+;                 The 8th parameter optionally specifies a protection mask.
+;                 The 9th parameter, if present, is a logical variable which
+;                 is set to .TRUE. iff the file will only be accessed
+;                 sequentially.  This permits considerable optimization
+;                 in file access if DECNET is involved.
+;           D_OPEN returns .TRUE. iff the open was successful.
+;           This routine may take a significant amount of time to
+;           complete part of which can be handled asynchronously.
+;            To verify that your OPEN has completed successfully you
+;           must call D_UNIT or the like.  You can be notified of
+;            the completion of the open by specifying an AST routine
+;            to D_ASTSET.
+;     ----------
+;     ++++++++++
+;
+;  IF(.NOT.D_OPEN_RAW(lun,'R' 'W' 'A' 'I' 'O' or 'U',filename [,nbuffs[,owner
+;      [,'F',recl[,prot[,seqonly]]]]]))STOP 'D_OPEN ERROR'
+;           Note that D_OPEN_RAW differs from the more commonly used D_OPEN
+;               only in that it creates a "raw" file having carriage-control
+;               attributes of NONE.
+;     __________
+      .ENTRY   D_OPEN_RAW,^M<R2,R3,R4,R5,R6,R7>
+;
+;     and now a note about register usage!
+;        In order to avoid difficulties with
+;        things like MOVC5 which use r0-r5,
+;        we will always store the pointer
+;        to the data structure for the current unit
+;        in r6, and the current unit number itself in r7.
+;
+         movzbl    #0,r0    ; set no rat
+         brb      dr_share ; and branch to common code
+      .ENTRY   R_OPEN,^M<R2,R3,R4,R5,R6,R7>
+         movzbl    #0,r0    ; set no rat
+         brb      dr_share ; and branch to common code
+;     ++++++++++
+;
+;  IF(.NOT.D_OPEN_FTN(lun,'R' 'W' 'A' 'I' 'O' or 'U',filename [,nbuffs[,owner
+;      [,'F',recl[,prot[,seqonly]]]]]))STOP 'D_OPEN_FTN ERROR'
+;           Note that D_OPEN_FTN differs from the more commonly used D_OPEN
+;               only in that it creates a file having carriage-control
+;               attributes of FORTRAN.
+;     ----------
+;     ++++++++++
+;        CALL D_CLOS(lun)     ,where
+;        lun is the iopack lun (no relation to FORTRAN luns)
+;        This routine may take a significant amount of time
+;        to complete and has no provision for running asynchronously!
+;     ----------
+;     ++++++++++
+;        CALL D_LEN(lun)
+;        where lun is the iopack lun
+;        returns the number of bytes read in the last
+;        transfer.
+;        This routine may take a significant amount of time to complete
+;        as it waits for completion of the last io on the lun before
+;        returning.  It is recommended that you always call D_UNIT
+;        as well as D_LEN to ensure that the transfer was successful.
+;     ----------
+;     ++++++++++
+;        IF(D_UNIT(lun))30,40,50
+;        where 30 is the label for a successful operation
+;        40 is the label for EOF, and
+;        50 is the label for error return.
+;        A call to D_UNIT or D_LEN synchronizes the io by waiting
+;        for it to complete before returning.
+;        You can also just check for io completion without having to
+;        wait if it isn't done by calling D_READY.
+;     ----------
+;     ++++++++++
+;        I = D_STAT(lun)
+;        -1 indicates a successful operation,
+;         0 indicates EOF, and
+;         a positive value indicates an error code.
+;        A call to D_STAT synchronizes the io by waiting
+;        for it to complete before returning.
+;     ----------
+;     ++++++++++
+;        I = D_STAT_(lun)
+;        returns with a normal VMS code to indicate results.
+;        A call to D_STAT_ synchronizes the io by waiting
+;        for it to complete before returning.
+;        This entry should supercede the normal D_STAT when we go
+;        to version 4.0 !!!!!!
+;     ----------
+;     ++++++++++
+;        CALL D_GET(lun,buffer,len)
+;        reads the next record from disk into BUFFER
+;        The maximum number of bytes in the transfer will
+;        be len.  Note that D_GET returns before the operation
+;        has completed.  You must call D_LEN or D_UNIT to ensure
+;        that the read has completed before attempting to examine
+;        the record.  In spite of its asynchronous nature, this routine
+;        may not return immediately if things like "window turns" are
+;        involved.
+;        You can arrange to be notified via an AST when io completes
+;        by calling D_ASTSET.
+;        Special warning for block i/o usage:  You should always
+;        specify a LEN value that is a multiple of 512 bytes.  In
+;        block i/o you will read exactly the number of bytes you request
+;        EXCEPT at the end of the file.  At the completion of a D_GET
+;        the file is positioned at the beginning of the next block so
+;        specifying a LEN that is not an exact number of blocks results
+;        in data being skipped.  Note that in block mode RMS does not
+;        interpret the data as records.  You get exactly what is in the
+;        file (with the exception of the file header info).
+;     ----------
+;     ++++++++++
+;        CALL D_PUT(lun,buffer,len)
+;        writes out the next record to iopack lun LUN
+;        using len bytes starting at buffer.
+;        This routine returns to the user before the io
+;        completes.  You must call D_LEN or D_UNIT to assure
+;        that the io is done before modifying the record in
+;        memory.  You can also be notified of the io completion
+;        via an AST if you have previously called D_ASTSET.
+;        In spite of the asynchronous nature of this routine a
+;        significant delay may still occur before control is
+;        returned to the user in cases where the file must be
+;        implicitly extended for example.
+;        Special warning for block i/o usage:  You should always
+;        specify a LEN value that is a multiple of 512 bytes except at
+;        the end of the file.
+;        At the completion of a D_PUT
+;        the file is positioned at the beginning of the next block so
+;        specifying a LEN that is not an exact number of blocks results
+;        in parts of the file not being written.  Note that in block i/o
+;        mode RMS doesn't add any carriage control information for you.
+;        The file ends up exactly as you wrote with the addition of the
+;        file header information.
+;     ----------
+;     ++++++++++
+;        CALL D_MARK(lun,addr)
+;           stores the address (RFA) of the current record 
+;           in addr. addr must be able to hold at least 6 bytes
+;        This routine always returns immediately unless previous
+;        io is still outstanding.
+;        This routine, and D_JUMP are the only 2 routines which cannot
+;        be called in block i/o mode (as specified via 'I' or 'O' in
+;        your D_OPEN call).
+;     ----------
+;     ++++++++++
+;        CALL D_JUMP(lun,addr)
+;           moves the file position to the record whose 
+;           address was stored previously in addr by a call
+;           to D_MARK.
+;        Control normally returns to the user immediately following
+;        a call to this routine unless something untoward like a
+;        "window turn" is involved.  If you want to be notified when
+;        the io has completed you can call D_ASTSET at some point
+;        before calling this routine.
+;        This routine, and D_MARK are the only 2 routines which cannot
+;        be called in block i/o mode (as specified via 'I' or 'O' in
+;        your D_OPEN call).
+;     ----------
+;     ++++++++++
+;        INTEGER*4 STATUS,D_INQUIRE
+;        STATUS = D_INQUIRE(lun,length,cc,blks,org[,cdt])
+;
+;        Where lun is the IOP logical unit number of the file.
+;        length - is the longest record in the file.
+;        cc - is the carriage control attribute
+;        blks - is the number of blocks allocated to this file
+;        org - is the file and record organization
+;        cdt - optionally returned with the creation time/date quadword
+;        This routine always returns immediately!
+;     ----------
+;     ++++++++++
+;     EXTERNAL myast
+;     ...
+;     CALL D_ASTSET(lun,myast)     ,where
+;        lun is the iopack lun and myast is
+;        the address of an AST routine which
+;        is to be called upon completion of
+;        all D_GET, D_PUT, D_JUMP, or D_TRUNC
+;        operations.  The AST will be called without
+;        arguments.
+;        Once you have called this routine it remains in
+;        in effect until you call it again with a different
+;        AST address or you call D_ASTCLR.
+;     ----------
+;     ++++++++++
+;     CALL D_ASTCLR(lun)   ,where lun is the iopack lun.
+;     This routine clears the previously specified AST
+;     address so that it will no longer be called.
+;     ----------
+;     ++++++++++
+;     LOGICAL D_READY
+;     ...
+;     IF(D_READY(lun) THEN
+;        io has completed
+;     ELSE
+;        io still in progress
+;     END IF
+;     Note that this routine can be used whether an AST routine
+;     has been specified or not.
+;     The whole purpose of this routine is to return immediately
+;     and let you know whether the io has completed or not.
+;     ----------
+;     ++++++++++
+;        CALL D_NAME(lun,filename,len)
+;
+;        where filename is a CHARACTER variable
+;        which will receive the full filespec of the
+;        currently open file,and LEN is the length
+;        of the filename
+;        This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     call D_FID(lun,buff)
+;
+;        where lun is the usual iolun number
+;        and buff is the address of a 28 byte buffer. The first
+;        16 bytes are loaded with the device name,
+;        the next 6 bytes are the FID, and the last
+;        6 are the DID.  This routine is primarily
+;        useful if you want to send a message to
+;        the symbiont.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;        CALL D_RNAM(lun1,oldfile,lun2,newfile)
+;
+;        where oldfile & newfile are the old and new
+;        filespecs for the rename operation.
+;        Note that both lun1 & lun2 must not be open.
+;        This routine may take a significant amount of time
+;        before returning to the user.  It has no provisions
+;        for asynchronous operation.
+;     ----------
+;     ++++++++++
+;        I = D_ERAS(IOLUN,FILENAME),where
+;           IOLUN is a currently closed IOLUN, &
+;           FILENAME is the name of a file to be deleted.
+;           Exceptionally, we do allow wildcards in FILENAME.
+;           Note that if wildcards are used, D_ERAS will attempt to
+;           delete all files matched even if it doesn't have privilege
+;           enough to delete them all.  In this case it will return
+;           the appropriate error on completion though.
+;        This routine may take a significant amount of time before
+;        returning to the user.  It has no provisions for
+;        asynchronous operation.
+;     ----------
+;     ++++++++++
+;     D_SET_WILD called as
+;     CALL IFERR(D_SET_WILD(lun,name)), where
+;        LUN is the usual IOLUN, and
+;        NAME is the filespec which may include wildcards!
+;     This routine is synchronous and may take a significant
+;     amount of time to complete (but not likely)!
+;     ----------
+;     ++++++++++
+;     D_EXPAND_WILD called as
+;     CALL IFERR(D_EXPAND_WILD(lun,name,len)), where
+;        LUN is the usual IOLUN,
+;        NAME is a character string which is returned with the
+;        resulting wildcard expansion string, and
+;        LEN is returned with the length of the string
+;        returned in NAME.
+;     To fully process a wildcard spec D_SET_WILD is called once.
+;     Then D_EXPAND_WILD is called repeatedly until it returns
+;     with a result of RMS$_NMF, and finally, D_END_WILD is called.
+;     This routine may take a significant amount of time to complete.
+;     There is no way to run it asynchronously!
+;     ----------
+;     ++++++++++
+;     D_END_WILD called as
+;     CALL IFERR(D_END_WILD(lun)), where
+;        LUN is the usual IOLUN.
+;     There must be one D_END_WILD call for every D_SET_WILD call.
+;     ----------
+;     ++++++++++
+;     D_EXTD, called as
+;     CALL IFERR(D_EXTD(lun,blocks)), where
+;        LUN is the usual IOLUN, and
+;        BLOCKS is the number of blocks by which
+;        to extend the file.
+;     This routine may take a significant amount of time before
+;     returning to the user.  It has no provisions for
+;     asynchronous operation.
+;     ----------
+;     ++++++++++
+;     CALL D_DELT(lun)
+;     Specifies that if the file is submitted as a batch or print
+;     job that it should be deleted upon completion.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     CALL D_SBMT(lun)
+;     Specifies that the file should be submitted as a batch job
+;     when it is closed.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     CALL D_SPOOL(lun)
+;     Specifies that the file should be spooled to SYS$PRINT when
+;     it is closed.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     CALL D_TMO(lun,seconds)   ,where
+;        lun is the usual iopack lun, and
+;        seconds is how many seconds to allow
+;        before timing out.  If this number of
+;        seconds expires before the io completes
+;        it will be aborted and an error returned.
+;     This option only affects the very next D_GET on the lun.
+;     This option only affects terminal devices.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     CALL D_CCO(lun)
+;     This option specifies that any current control O in effect on the
+;     terminal connected to this lun should be cancelled before the next
+;     D_PUT operation takes place.
+;     This routine always returns imeediately.
+;     ----------
+;     ++++++++++
+;     CALL D_RNE(lun)
+;     This option specifies that the next D_GET operation for this lun,
+;     if it is a terminal, should be done as a "READ NO ECHO".
+;     Beware that this option is only vslid on the very next operation
+;     and must be re-enabled for each io operation.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     CALL D_CVT(lun)
+;     This option specifies that the next D_GET from this lun,
+;     PROVIDED IT IS A TERMINAL, will automatically convert
+;     lower case characters to upper case.  This option must
+;     be re-enabled before each io operation for which it is
+;     to have an effect.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     CALL D_PTA(lun)
+;     This option specifies that before the next D_GET operation on this lun,
+;     PROVIDED IT IS A TERMINAL, the type ahead buffer will be flushed.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     CALL D_PMT(lun,prompt_string)   ,where
+;        lun is the usual iopack lun, and
+;        prompt-string is a string descriptor.
+;     This call allows the user to specify a prompt_string to be
+;     issued as a prompt in conjunction with the next D_GET
+;     operation to the lun, PROVIDED IT IS A TERMINAL.
+;     This routine always returns immediately.
+;     ----------
+;     ++++++++++
+;     CALL D_TRUNC(lun)
+;     This option specifies that the file should be truncated
+;     at the current point in the file.  Normally this is used
+;     with a file that is being written to, just before closing it.
+;     This routine returns before the truncation has actually
+;     been accomplished.  This occasionally may still involve a
+;     significant amount of time (see previous comments).
+;     You can arrange to be notified when the io actually completes
+;     by calling D_ASTSET at some point before calling D_TRUNC.
+;     ----------

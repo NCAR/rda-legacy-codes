@@ -1,0 +1,72 @@
+#! /bin/csh
+cd ~/DJ_DLT
+cat $1 | awk '{print $2}' >! list.in
+#
+# must run on system with msread available
+date
+msread >& /dev/null
+if($status == 1) then
+   echo must run on system with msread available
+   exit
+endif
+set cd = `pwd`
+# list of mss file names
+#set list = $cd/$1
+set list = $cd/list.in
+# set mss directory to be used with file names in list
+#  include trailing / (use null if full path is in list)
+set mssd = /DSS/
+# set mssd = /DSS/DS091.0/sgb-anl/
+#
+# system which will actually do the tape writing
+set wsd = haystack.scd
+# device name for writing
+set nun = /dev/rmt/7hn
+# input block size for tape write
+set insz = 512
+# output block size for tape write
+set outsz = 32768
+#
+set wd = /huron/scratch/chifan/tmp$$
+set wf = $wd/mssrun$$
+if(!(-e $wd)) mkdir $wd
+chmod 700 $wd
+echo " start mss2tape  on list,unit,system,wd $list $nun $wsd $wd" > $wf
+date >>& $wf
+echo " start mss2tape  on list,unit,system,wd $list $nun $wsd $wd"
+set wp = $wd/fxx
+set n = 0
+foreach x (`cat $list`)
+  @ n++
+  echo start msread $wp$n $x
+  echo start msread $wp$n $x >> $wf
+  if(-e $wp$n) rm $wp$n
+  (mssrd $wp$n $mssd$x >> $wf &) >>& $wf
+  if($n > 1) then
+    msswt $wp$m
+    echo Start writing file $m to tape
+    echo write $y to tape >> $wf
+    (rsh -n $wsd dd ibs=$insz obs=$outsz if=$wp$m of=$nun >> $wf ) >>& $wf
+    echo $y $wp$m written to tape
+    date
+    rm $wp$m
+  endif
+  set m = $n
+  set y = $x
+end
+#
+# write last file to tape
+msswt $wp$m
+echo Start file write $m
+echo write $y to tape >> $wf
+(rsh -n $wsd dd ibs=$insz obs=$outsz if=$wp$m of=$nun >> $wf) >>& $wf
+echo $y $wp$m written to tape
+rm $wp$m
+echo Export job complete on $m files .
+date >>& $wf
+cat $wf
+#rsh -n $wsd mt -f $nun rewoffl
+date
+rm $wf
+rm -r $wd
+exit

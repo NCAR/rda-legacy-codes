@@ -1,0 +1,230 @@
+          IDENT    GBYTE                                                        
+*  NCARS LAST 7600 GBYTES MODIFIED TO RUN ON CYBER CALLING SEQUENCES            
+*  FOR CONTROL DATA 60-BIT CYBER MACHINES, BUT                                  
+*  BEWARE OF REGISTER CONFLICTS, NOTE THAT A0 IS USED.                          
+*                                                                               
+* NOTE THAT THE OFFSET (Q) CAN ASSUME ANY VALUE .GE. 0                          
+* MANY NCAR DSS CODES EXPECT THAT Q CAN ASSUME ANY VALUE .GE. 0                 
+*                                                                               
+****E      GBYTE, GBYTES                                                        
+****1      CALL GBYTES(P,U,Q,B,S,N)                                             
+* P       ARRAY OF PACKED BYTES.                                                
+* U       ARRAY OF UNPACKED B-BIT INTEGERS.                                     
+* Q       NUMBER OF BITS TO BE SKIPPED PRECEDING THE FIRST BYTE IN P.           
+*         (INTEGER, .GE. 0)                                                     
+* B       BYTE SIZE.  (INTEGER, 1-60)                                           
+* S       NUMBER OF BITS TO BE SKIPPED BETWEEN BYTES IN P.                      
+*         (INTEGER, .GE.0)                                                      
+* N       NUMBER OF BYTES TO BE UNPACKED.                                       
+****1     GBYTES UNPACKS N B-BIT BYTES FROM THE P-ARRAY INTO THE                
+* U-ARRAY, STARTING BY SKIPPING Q BITS IN P, THEN SKIPPING S BITS               
+* BETWEEN BYTES.                                                                
+****1     CALL GBYTE(P,U,Q,B)                                                   
+****1     GBYTE UNPACKS A SINGLE BYTE FROM P INTO U.                            
+****.*****                                                                      
+*                                                                               
+*                                                                               
+*                                                                               
+          ENTRY     GBYTE,GBYTES                                                
+          ENTRY    SBYTE,SBYTES                                                 
+ GBYTES   CON       0                                                           
+          SA4       GBYTES                                                      
+          BX6       X4                                                          
+          SA6       GBYTE                                                       
+          SX4      A1-1       SET X4 TO ARGUMENT LOC                            
+          SA2      X4+6       ADDRESS OF LAST ARG                               
+          SA3      X2         FETCH LAST ARG                                    
+          SA0      X3-1       LOOP COUNTER                                      
+          JP        REG                                                         
+ GBYTE    CON       0                                                           
+          SA0      B0                                                           
+          SA4      GBYTE                                                        
+          SX4      A1-1                                                         
+ REG      SA1      X4+1       1ST ARG                                           
+          SA2      X4+2       2ND                                               
+          SA3      A1+2       3RD                                               
+          SA4      A2+2       4TH                                               
+          SX6      B1         SAVE B REG                                        
+          SX7      B3                                                           
+          SA6      SAVE                                                         
+          SA7      SAVE+1                                                       
+          SX6      B7                                                           
+          SX7      B2                                                           
+          SA6      A7+1                                                         
+          SA7      A6+1                                                         
+          SA1      X1         GET SOURCE WORD IN X1                             
+          SB7      X2         MOVE DESTINATION ADDRESS                          
+          SA5      X4         GET BYTE SIZE IN X5                               
+          SA4      X3         GET CALCULATED OFFSET IN X4                       
+          SB2      X5-1       B1#BYTESIZE-1 (SET FOR GENERATING MASK)           
+          SX3       60        .CONSTANT OF 60                                   
+ LOOP     SA2       A1+1      .GET SECOND WORD (WHETHER NEEDED OR NNOT)         
+          IX7       X3-X4     .ACTUAL OFFSET # 60-CALC OFFSET                   
+          MX0      1                                                            
+          SB3      X7        PUT INTO B3                                        
+          AX0       B2,X0     .  MASK IN X0                                     
+          IX6       X7-X5     .FIND IF BYTE IS JUST IN WORD                     
+          LX0      B3,X0      LINE UP MASK                                      
+          SB1      X6                                                           
+          BX1       X0*X1     .GET THE BYTE ISOLATED IN X1                      
+          PL        B1,RTJST  .IF WE ARE DONE,JUMP                              
+          SB3      -B1                                                          
+          MX0      1          IF NOT                                            
+          SB3       B3-1      .    MAKE UP                                      
+          AX0       B3,X0     .      SECOND MASK                                
+          BX2       X2*X0     .ISOLATE 2ND PART OF BYTE                         
+          BX1       -X0*X1    .CHOP OFF TRASH IN 1ST PART OF BYTE               
+          BX1       X1+X2     .COMBINE PORTIONS                                 
+ RTJST    ZR        X4,LEFT   .IF SIGN BIT IS INVOLVED,JUMP                     
+          AX6       B1,X1     .RIGHT JUSTIFY THE BYTE                           
+ STR      SA6       B7        .STORE IT IN OUTPUT FIELD                         
+          SX0      A0                                                           
+          ZR       X0,GBYT    IF DONE,LEAVE                                     
+          SA0      A0-1       IF NOT DONE COUNT                                 
+          SB7       B7+1                                                        
+          PX7       X3        .FLOAT 60  #  B                                   
+          IX4       X4+X5                                                       
+          SA2      A3+2       GET SKIP--5TH ARG                                 
+          SA2      X2                                                           
+          IX4      X4+X2                                                        
+          NX7       X7        .NORMALIZE B                                      
+          PX6       X4        .FLOAT NEW COFFSET (IN BITS)  #  A                
+          NX6       X6        .NORM  A                                          
+          FX2       X6/X7     .Q # A/B  .GET QUOTIENT INX2                      
+          UX2       B1,X2     .                                                 
+          LX2       B1,X2     .GET INTEGER QUOTIENT                             
+          SB1       X2        .PUT IN B1                                        
+          PX2       X2        .REPACK AND                                       
+          NX2       X2        .  NORMALIZE                                      
+          FX4       X7*X2     .X4 # B*Q  .GET INTEGER PRODUCT                   
+          FX4       X6-X4     .R # A - B*Q  (GET REMAINDER IN X4)               
+          UX4       B3,X4     .GET INTEGER                                      
+          LX4       B3,X4     .    REMAINDER IN X4 # NEW CALC OFFSET)           
+          SA1       A1+B1     .GET NEW WORD IN                                  
+          EQ       LOOP                                                         
+ LEFT     SB1       X5        .GET BYTE SIZE                                    
+          LX6       B1,X1     .RIGHT JUSTIFY THE BYTE                           
+          JP        STR       .GO STORE IT                                      
+ GBYT     SA2      SAVE       RESTORE REGISTERS                                 
+          SA3      A2+1                                                         
+          SB1      X2                                                           
+          SB3      X3                                                           
+          SA4      A3+1                                                         
+          SA5      A3+2                                                         
+          SB7      X4                                                           
+          SB2      X5                                                           
+          EQ       GBYTE      EXIT                                              
+ SBYTES   CON       0                                                           
+          SA4       SBYTES                                                      
+          BX7       X4                                                          
+          SA7       SBYTE                                                       
+          SX4      A1-1       SET X4 FOR NCAR COMPATIBILITY                     
+          SA2      X4+6                                                         
+          SA3      X2                                                           
+          SA0      X3-1       IF LONG CALL,SET UP LOOP COUNTER                  
+          SX6      B5                                                           
+          SA2      X4+5                                                         
+          SA3      X2                                                           
+          SB5      X3         SKIP SIZE IN   B5                                 
+          JP        REGA                                                        
+ SBYTE    CON       0                                                           
+          SX6      B5                                                           
+          SA0      B0                                                           
+          SA4      SBYTE                                                        
+          SX4      A1-1                                                         
+ REGA     SA1      X4+1       1ST ARG                                           
+          SA2      X4+2       2ND ARG                                           
+          SA3      A1+2       3RD ARG                                           
+          SA4      A2+2       4TH ARG                                           
+          SA6      SAVE       SAVE B5                                           
+          SX6      B1         SAVE B REG                                        
+          SX7      B2                                                           
+          SA6      A6+1                                                         
+          SA7      SAVE+2                                                       
+          SX6      B3                                                           
+          SX7      B7                                                           
+          SA6      A7+1                                                         
+          SA7      A7+2                                                         
+          SX6      B4                                                           
+          SA6      A7+1                                                         
+          SA1      X1         GET FIRST DESTINATION WORD IN X1                  
+          SB7      X2         MOVE SOURCE ADDRESS                               
+          SA5      X4         GET BYTE SIZE IN X5                               
+          SA4      X3         GET CALCULATED OFFSET IN X4                       
+          SB2       X5-1      .B2#BYTE SIZE - 1 (SET FOR GENERATING MASK        
+          SX3       60        .CONSTANT OF 60.                                  
+          SB4       X5        .BYTE SIZE ALSO IN B4                             
+ LOOPA    SA2       A1+1      .GET SECOND DEST WORD (WHETHER NEEDED OR N        
+          IX7       X3-X4     .ACTUAL OFFSET # 60 - CALC OFFSET                 
+          SB3       X7        .PUT INTO B3                                      
+          SA3       B7        .GET SOURCE WORD                                  
+          SB1       B3-B4     .FIND IF BYTE IS SPLIT OR NOT                     
+          BX6       X3        .DOUBLE IMAGE                                     
+          BX7       X3        .  OF SOURCE BYTE  TO X6 AND X7                   
+          NG        B1,NGC                                                      
+          MX0       1         .FORM 1ST MASK                                    
+          AX0       B2,X0     .   IN X0                                         
+          LX0       B4,X0     .RIGHT JUSTIFY MASK                               
+          LX0       B1,X0     .  AND MASK                                       
+ RET      LX6       B1,X6     .LINE UP BYTE                                     
+          BX1       -X0*X1    .MAKE HOLE IN OUTWORD                             
+          BX6       X0*X6     .TAKE CARE OF ANY SIGN EXTENSION                  
+          BX6       X1+X6     .COMBINE THE BYTES                                
+          SA6       A1        .STORE THE WORD                                   
+          PL        B1,DONE   .IF B1 IS NOT NEG, WE ARE DONE                    
+          SX1       B4-B3     .2ND MASK SIZE # B.S. - ACTUAL OFFSET             
+          SX3       60        .RETURN CONSTANT                                  
+          IX6       X3-X1     .LEFT SHIFT # 60 - 2ND MASK SIZE                  
+          SB1       X1-1      .MAKE                                             
+          MX0       1         .  2ND                                            
+          AX0       B1,X0     .    MASK                                         
+          SB1       X6        .LEFT SHIFT                                       
+          LX7       B1,X7     .  BYTE                                           
+          BX2       -X0*X2    .MAKE HOLE IN OUT WORD                            
+          BX7       X0*X7     .KNOCK OFF TRASH                                  
+          BX7       X2+X7     .COMBINE                                          
+          SA7       A2        .STORE                                            
+ DONE     SX0      A0                                                           
+          ZR       X0,SBYT    IF DONE LEAVE                                     
+          SA0      A0-1       IF NOT,COUNT                                      
+          SB7       B7+1                                                        
+          SX3       60                                                          
+          PX7       X3        .FLOAT 60  #  B                                   
+          IX4       X4+X5                                                       
+          SX4       X4+B5     .COFFSET # OLD OFFSET+ BYTE SIZE +SKIP SIZ        
+          NX7       X7        .NORMALIZE B                                      
+          PX6       X4        .FLOAT NEW COFFSET (IN BITS)  #  A                
+          NX6       X6        .NORM  A                                          
+          FX2       X6/X7     .Q # A/B  .GET QUOTIENT INX2                      
+          UX2       B1,X2     .                                                 
+          LX2       B1,X2     .GET INTEGER QUOTIENT                             
+          SB1       X2        .PUT IN B1                                        
+          PX2       X2        .REPACK AND                                       
+          NX2       X2        .  NORMALIZE                                      
+          FX4       X7*X2     .X4 # B*Q  .GET INTEGER PRODUCT                   
+          FX4       X6-X4     .R # A - B*Q  (GET REMAINDER IN X4)               
+          UX4       B3,X4     .GET INTEGER                                      
+          LX4       B3,X4     .    REMAINDER IN X4 # NEW CALC OFFSET)           
+          SA1       A1+B1     .GET NEW WORD IN                                  
+          EQ       LOOPA                                                        
+ NGC      SB2       B3-1      .GET SHIFT CONSTANT                               
+          MX0       1                                                           
+          AX0       B2,X0     .FORM THE MASK IN X0                              
+          LX0       B3,X0     .RIGHT JUSTIFY MASK                               
+          SB2       B4-1      .RESET B2                                         
+          JP        RET                                                         
+ SBYT     SA1      SAVE       RESTORE REG                                       
+          SA2      SAVE+1                                                       
+          SB5      X1                                                           
+          SB1      X2                                                           
+          SA3      A1+2                                                         
+          SA4      A1+3                                                         
+          SB2      X3                                                           
+          SB3      X4                                                           
+          SA1      A4+1                                                         
+          SA2      A4+2                                                         
+          SB7      X1                                                           
+          SB4      X2                                                           
+          EQ       SBYTE                                                        
+ SAVE     BSS      6                                                            
+          END                                                                   

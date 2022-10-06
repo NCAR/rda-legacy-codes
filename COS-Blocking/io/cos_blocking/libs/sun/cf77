@@ -1,0 +1,5 @@
+#! /bin/csh -f
+#
+# set 'libdir' to the path where you put libcraylib.a
+set libdir = .
+f77 -xtypemap=real:64,double:128,integer:64 $1 -L$libdir -lcraylib -lC

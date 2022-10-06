@@ -1,0 +1,174 @@
+      SUBROUTINE UZBLOK (ITAPE,MODE,KTYPE,IBUF,KMAX,LREP,NWORDS,KSKIP,
+     1                   KBITS,IEOF)
+      SAVE
+C***********************************************************************
+C
+C
+C DIMENSION OF           LREP(NWORDS),IBUF(KMAX)
+C ARGUMENTS
+C
+C LATEST REVISION        DECEMBER, 1984
+C
+C PURPOSE                UZBLOK UNBLOCKS FIXED LENGTH CHARACTER OR
+C                        BINARY LOGICAL RECORDS FROM LARGER PHYSICAL
+C                        RECORDS ON A BLOCKED CRAY-1 DATASET.  THE
+C                        LOGICAL RECORDS NEED NOT START AT THE BEGINNING
+C                        OF THE PHYSICAL RECORD AND THE LOGICAL RECORD
+C                        MAY BE ANY NUMBER OF BITS LONG.  LOGICAL
+C                        RECORDS MUST NOT CROSS PHYSICAL RECORD
+C                        BOUNDARIES.
+C
+C                        IF THE LOGICAL RECORDS ARE AN INTEGER NUMBER
+C                        OF 64-BIT WORDS IN LENGTH, THEN PACKAGE UBLOK
+C                        ON LIBRARY CRAYLIB IS MORE EFFICIENT.  IN
+C                        THIS CONTEXT, CRAY-1 USERS SHOULD ALSO
+C                        OBTAIN A COPY OF THE NCAR CONSULTING OFFICE
+C                        DOCUMENTATION "CRAY DIRECT TAPE CONNECTION"
+C                        BY MARC NELSON.
+C
+C USAGE                  CALL UZBLOK (ITAPE,MODE,KTYPE,IBUF,KMAX,LREP,
+C                                     NWORDS,KSKIP,KBITS,IEOF)
+C
+C ARGUMENTS
+C ON INPUT               ITAPE
+C                          INPUT DATA SET LOGICAL UNIT NUMBER.
+C
+C                        MODE
+C                          MODE FOR TAPE READ.
+C                          = 1  BIN, NO CHARACTER CONVERSION.
+C
+C                        KTYPE
+C                          NOT USED.
+C
+C                        IBUF
+C                          INPUT BUFFER.
+C
+C                        KMAX
+C                          MAXIMUM PHYSICAL RECORD SIZE PLUS ONE.
+C
+C                        NWORDS
+C                          NUMBER OF FULL 64-BIT WORDS TO RETURN FOR
+C                          EACH LOGICAL RECORD.  MUST BE LARGE ENOUGH TO
+C                          CONTAIN KBITS.
+C
+C                        KBITS
+C                          NUMBER OF BITS IN EACH LOGICAL RECORD.
+C
+C                        KSKIP
+C                          NUMBER OF BITS TO SKIP AT THE START OF THE
+C                          PHYSICAL RECORD.  THE FIRST LOGICAL RECORD
+C                          STARTS AT BIT KSKIP+1.
+C
+C ARGUMENTS
+C ON OUTPUT              LREP
+C                          OUTPUT BUFFER FOR UNBLOCKED LOGICAL RECORD
+C                          (MUST BE AT LEAST NWORDS WORDS LONG).
+C
+C                        IEOF
+C                          END OF FILE FLAG.
+C                          = 0  A LOGICAL RECORD HAS BEEN UNBLOCKED.
+C                          = 1  INDICATES AN EOF WAS READ.
+C
+C SPECIAL CONDITIONS     .  WILL READ FILES FROM ONLY ONE DATA SET.
+C                        .  LOGICAL RECORDS MAY BE ANY FIXED NUMBER OF
+C                           BITS IN LENGTH.  IF 64*NWORDS .GT. KBITS,
+C                           THE LAST WORD OF LREP WILL CONTAIN BITS NOT
+C                           REQUESTED.  THESE SHOULD BE DISCARDED BY
+C                           THE USER.
+C                        .  THE UNBLOCKING FROM A RECORD STOPS WHEN
+C                           THERE ARE NOT ENOUGH BITS REMAINING FOR
+C                           ANOTHER LOGICAL RECORD.
+C                        .  WILL DROP PHYSICAL RECORDS WITH A
+C                           PARITY ERROR.
+C
+C I/O                    FORTRAN LOGICAL UNIT ITAPE - INPUT DATA SET.
+C                        WHEN AN EOF OR EOT IS READ, THE FOLLOWING
+C                        MESSAGE IS PRINTED:
+C                            EOF ON BLOCK READ, PHYS REC = NN,
+C                            LOG REC = NN  .
+C                        WHEN A PHYSICAL RECORD IS LONGER THAN KMAX, THE
+C                        FOLLOWING MESSAGE IS PRINTED AND PROGRAM STOPS:
+C                            ACTUAL PHYSICAL RECORD = NN,
+C                            MAXIMUM PHYSICAL RECORD = NN  .
+C                        WHEN IOWAIT RETURNS STATUS OF 2 (PARITY) OR
+C                        3 (EOT), THE FOLLOWING MESSAGE IS PRINTED:
+C                            XX TROUBLE ON BLOCK READ TAPE = NN,
+C                            STATE = NN, WDS = NN, REC = NN,
+C                            LOG REC = NN  .  THIS RECORD NOT PROCESSED.
+C
+C PRECISION              NOT APPLICABLE
+C
+C REQUIRED LIBRARY       NONE, BUT SEE REFERENCES IN "PURPOSE"
+C FILES                  SECTION ABOVE.
+C
+C LANGUAGE               FORTRAN
+C
+C PORTABILITY            THIS UTILITY IS SPECIFIC TO THE CRAY-1.
+C
+C HISTORY                WRITTEN BY ROY JENNE IN FEBRUARY 1967
+C                        FOR NCAR'S CDC MACHINES.  ADAPTED FOR
+C                        USE ON NCAR'S CRAY-1 MACHINES IN JANUARY
+C                        1983 BY MEMBERS OF THE SCIENTIFIC
+C                        COMPUTING DIVISION.
+C
+C***********************************************************************
+      DIMENSION       IBUF(KMAX) ,LREP(NWORDS)
+      DATA NC,NK/ 11,10/
+      DATA NUM/0/
+C
+C -LOCAL VARIABLES-
+C
+C NC= NUMBER OF LOGICAL RECORDS ALREADY UNBLOCKED
+C NK= NUMBER OF LOGICAL RECORDS IN THE BLOCK
+C NUM= TOTAL NUMBER OF LOGICAL RECORDS IN THE FILE
+C NSKIP=NUMBER OF BITS TO SKIP FROM BEGINNING OF PHYS. REC TO THIS
+C LOGICAL REC
+C N= INDEX OF FIRST WORD CONTAINING BITS BELONGING TO THIS LOG. REC
+C NOFF= NUMBER OF BITS TO SKIP IN IBUF(N) TO GET TO FIRST BIT OF THIS
+C LOGICAL REC
+C
+      IEOF = 0
+      IF (NC .GT. NK) GO TO 102
+  101 NSKIP = KSKIP+(NC-1)*KBITS
+      N = NSKIP/64+1
+      NOFF = NSKIP-64*N+64
+      CALL GBYTES (IBUF(N),LREP,NOFF,64,0,NWORDS)
+      NUM = NUM+1
+      NC = NC+1
+      RETURN
+C
+C READ IN A NEW RECORD TO UNBLOCK
+C
+  102 DO 103 I=1,KMAX
+         IBUF(I) = 0
+  103 CONTINUE
+  104 CALL RDTAPE (ITAPE,MODE,NTYPE,IBUF,KMAX)
+      CALL IOWAIT (ITAPE,NSTATE,NWDS)
+      IF (NSTATE .EQ. 1) GO TO 107
+      NREC = NREC+1
+      IF (NSTATE .NE. 0) GO TO 105
+      IF (NWDS .LT. KMAX) GO TO 106
+      PRINT 1001 , NWDS,KMAX
+      CALL EXIT
+  105 PRINT 1002 , ITAPE,NSTATE,NWDS,NREC,NUM
+      IF (NSTATE .EQ. 3) GO TO 107
+      GO TO 104
+  106 NK = (NWDS*64-KSKIP)/KBITS
+      IF (NK .EQ. 0) GO TO 105
+      NC = 1
+      GO TO 101
+  107 PRINT 1003 , NREC,NUM
+      NREC = 0
+      NUM = 0
+      NC = KMAX
+      NK = 0
+      IEOF = 1
+      RETURN
+C
+ 1001 FORMAT (1H0,*ACTUAL PHYSICAL RECORD=*I8,5X,
+     1        *MAXIMUM PHYSICAL RECORD=*I8)
+ 1002 FORMAT (1H0,* XX TROUBLE ON BLOCK READ,TAPE=*I3,2X,*STATE=*I3,2X,
+     1        *WDS=*I10,2X,*REC=*I6,2X,*LOG REC=*I10/
+     2        5X,*THIS RECORD NOT PROCESSED*)
+ 1003 FORMAT (1H0,* EOF ON BLOCK READ, PHYS REC=*I5,2X,*LOG REC=*I5)
+      END

@@ -1,0 +1,31 @@
+This directory contains routines which may be useful for reading
+data from external devices such as Exabyte or 1/2" tapes on to UNIX
+disk files.  The form of the resultant disk file can range from
+an exact copy of the string of bytes on the tape to Cray COSblocked
+files where each block on the media becomes one COSblocked record.
+
+
+tape2diskbin.c  c code to read a binary, possibly multifile, tape
+		media and create disk file(s) with an exact copy
+		of bytes on the media.
+
+tape2disk.c     c code to copy data from tape to a disk file with
+		options for linefeed insertion (ASCII input) or
+		exact copy (binary input).
+
+tape2disk.f     fortran code to copy data from tape to a disk file
+		with options for linefeed insertion (ASCII input) or
+		exact copy (binary input).  Uses fortran extensions
+		which may not be available on all compilers, BUT write
+		statments could be replaced with locally available
+		options.
+
+tape2cosb.f     Fortran code to read tape media and create a
+		Cray COSblocked file.
+
+tape2tape.f     Fortran code to make an exact tape copy.
+
+tapescan.f      Fortran code to summarize contents of a tape.
+
+tapediag.c      c program to diagnose tapes where content is
+		unknown

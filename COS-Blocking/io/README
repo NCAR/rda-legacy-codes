@@ -1,0 +1,96 @@
+File                            Description
+------------    ------------------------------------------------------------
+
+cbfopn.f       - COS blocked file read/write subroutine; entries include:
+                   CBFOPN - Sets up access to a logical unit.
+                   CBFRD  - Read the next sequential record.
+                   CBFWR  - Write the next sequential record.
+                   CBFREW - Rewind the unit (read only).
+                   CBFCLS - Close the unit, if open for write, flush the
+                            buffer and add an EOF.
+                   CBFEOF - Write an EOF (write only).
+                 Externals needed are GBYTES and maybe SWAP4; see directory
+		 ../gbytes).  Modified Aug 1999.
+
+cbfscan.f      - Read COS blocked files on unix system and summarize contents.
+                 CBFSCAN prompts for a file name from stdin, writes to stdout
+                 the beginning of the first ten records in each file, and
+                 one line summaries of each file's contents displaying min/max
+		 record lengths and number of records.  Modified Aug 1999.
+
+cbfunblk.f     - Read COS blocked files and write to stdout (without COS
+		 blocking).  This uses cbfopn.f; see also cosconvert.c.
+
+cosconvert.c   - This utility strips the COS-blocking from a COS-blocked file,
+		 leaving either a plain-binary or a Unix-ASCII file.  The source
+		 code is written in C and has been tested on Sun and SGI
+		 systems.
+
+cosfile.c      - This utility summarizes a COS-blocked file.  The source code is
+		 written in C and has been tested on Sun and SGI systems.
+
+
+cossplit.c     - This utility splits a multiple-file COS-blocked dataset into
+		 individual COS-blocked files.  The source code is written in C
+		 and has been tested on Sun and SGI systems.
+
+iopack         - Directory containing VAX VMS routines for reading (RDTAPE)
+                 and writing (WRTAPE) variable length records.
+
+lrecio.f       - Routines for reading/writing fixed blocked tape records;
+                 entries include:
+                   LOPEN  - Sets up access to a logical unit, defines
+                            record and block size.
+                   LREAD  - Reads the next sequential logical record.
+                   LWRITE - Writes a logical record.
+                   LCLOSE - Removes a logical unit connection.
+
+rdtape.f       - Subroutines RDTAPE, WRTAPE and IOWAIT for use on a Cray
+                 (converts to BUFFER IN, BUFFER OUT, and LENGTH and UNIT
+                 calls).
+
+rptout.f       - NCAR Cray code for writing small logical records within
+		 larger physical blocks for more efficient I/O.
+
+rptin.f        - NCAR Cray code for reading records written by rptout.f
+
+rptinx.f       - Read a file which was written in NCAR RPTIN format.  Uses
+                 RDTAPE for device I/O.
+
+rptinxcbfrd.f  - Like rptinx.f, but uses the cbfopn.f package to read
+		 COS blocked file format.  Modified Aug 1999.
+
+rptinxcbfrd.for - same as rpintxcbfrd.f but for PC running Digital Visual Fortran
+
+rptinxcbfsub.f - rptinxcbfrd.f without the example main (driver) routine.
+                 Modified Oct 1997.
+
+systems_info   - Operating system summaries listing key differences in
+                 I/O, including recommended GBYTES versions.
+
+ublok          - Unblocks fixed length character or binary logical records
+                 from larger physical records.  Each logical record must be an
+                 integer multiple of 64 bits long.  Logical records must not
+                 cross physical record boundaries.  Assumes NCAR CRAY 64-bit
+                 main-frame and availability of GBYTE/GBYTES.
+
+uzblok         - Unblocks fixed length character or binary logical records
+                 from larger physical records.  The logical records need not
+                 start at the beginning of the physical record and the logical
+                 record may be any number of bits long.  Logical records must
+                 not cross physical record boundaries.  Assumes NCAR CRAY
+                 64-bit main-frame and availability of GBYTE/GBYTES.
+
+vaxrec.f       - On a ftp binary file transfer to a VAX, VMS breaks up records
+                 longer than 512 bytes into 512-byte blocks.  Subsequently,
+                 access programs expecting a longer record fail on the first
+                 read.  Vaxrec.f reblocks binary records into the record
+                 length specified by the user.
+
+vbsio.f        - Routines for reading/writing IBM VBS format tape records;
+                 entries include:
+                   VOPEN  - Sets up access to a logical unit.
+                   VREAD  - Reads the next sequential logical record.
+                   VWRITE - Writes a logical record.
+                   VCLOSE - Removes a logical unit connection.
+

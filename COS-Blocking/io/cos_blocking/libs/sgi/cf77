@@ -1,0 +1,5 @@
+#! /bin/csh -f
+#
+# set 'libdir' to the path where you put libcraylib.a
+set libdir = .
+f77 -i8 $1 -L$libdir -lcraylib -lC -woff 84,131

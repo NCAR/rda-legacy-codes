@@ -1,0 +1,16 @@
+Tape    Density File    Block Files     Volume          Date written    Record  Content
+		Format  Size                                            Format
+
+B00001  DLT80   tar     32768   204     37862MB         04/17/2001      GRIB    Reanalysis-2 pgb-anl files, 1979-1995, one file per month
+B00002  DLT80   tar     32768   252     41352MB         04/17/2001      GRIB    Reanalysis-2 flx-ft00 files, 1979-1999, one file per month
+B00003  DLT80   tar     32768   252     42204MB         04/21/2001      GRIB    Reanalysis-2 flx-ft06 files, 1979-1999, one file per month
+B00004  DLT80   tar     32768   120     38368MB         04/24/2001      GRIB    Reanalysis-2 pgb-anl files, 1996-1999, sgb-anl files 1979-1984, one file per month
+B00005  DLT80   tar     32768    96     39267MB         04/25/2001      GRIB    Reanalysis-2 sgb-anl files 1985-1992, one file per month
+B00006  DLT80   tar     32768    84     34451MB         05/10/2001      GRIB    Reanalysis-2 sgb-anl files, 1993-1999, one file per month
+B00007  DLT80   tar     32768   144     32908MB         05/08/2001      GRIB    Reanalysis pgb.f00 files, 1948-1953, two files per month
+B00008  DLT80   tar     32768   156     34034MB         05/09/2001      GRIB    Reanalysis pgb.f00 files, 1954 - 1957, two files per month, 1958 - 1962 one file per month
+B00009  DLT80   tar     32768   156     35668MB         05/12/2001      GRIB    Reanalysis pgb.f00 files, 1963 - 1975 one file per month
+B00010  DLT80   tar     32768   156     35579MB         05/14/2001      GRIB    Reanalysis pgb.f00 files, 1976 - 1988 one file per month
+B00011
+B00012  DLT80   tar     32768   216     35918MB         05/21/2001      GRIB    Reanalysis 8 day forecasts, 1948 - 1965, one file per month
+B00013  DLT80   tar     32768   216     35802MB         05/23/2001      GRIB    Reanalysis 8 day forecasts, 1966 - 1983, one file per month
